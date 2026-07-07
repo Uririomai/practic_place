@@ -29,6 +29,8 @@ services:
       JWT_SECRET: blah-blah
       PORT: 3000
       SWAGGER_ENABLED: true
+      ADMIN_EMAIL: admin123@example.com
+      ADMIN_PASSWORD: 12345678
     volumes:
       - .:/app
       - node_modules:/app/node_modules

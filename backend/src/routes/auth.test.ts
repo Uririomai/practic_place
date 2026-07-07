@@ -78,7 +78,7 @@ describe("POST /auth/register", () => {
       .post("/auth/register")
       .send({
         email: "a@b.com",
-        password: "secret",
+        password: "secret12",
       });
 
     expect(res.status).toBe(200);
@@ -87,7 +87,7 @@ describe("POST /auth/register", () => {
     expect(res.body.token).toBe("token-for-id-1");
 
     expect(fakeDb.users).toHaveLength(1);
-    expect(fakeDb.users[0]?.bcryptPassword).toBe("hashed:secret");
+    expect(fakeDb.users[0]?.bcryptPassword).toBe("hashed:secret12");
   });
 
   it("returns 409 for duplicate email", async () => {
@@ -95,18 +95,18 @@ describe("POST /auth/register", () => {
       .post("/auth/register")
       .send({
         email: "dup@b.com",
-        password: "secret",
+        password: "secret12",
       });
 
     const res = await request(app)
       .post("/auth/register")
       .send({
         email: "dup@b.com",
-        password: "secret",
+        password: "secret12",
       });
 
     expect(res.status).toBe(409);
-    expect(res.body.error).toBe("user exists");
+    expect(res.body.error).toBe("USER_EXISTS");
   });
 
   it("returns 400 when password missing", async () => {
@@ -117,6 +117,7 @@ describe("POST /auth/register", () => {
       });
 
     expect(res.status).toBe(400);
+    expect(res.body.error).toBe("EMAIL_OR_PASSWORD_NOT_SPECIFIED");
   });
 
   it("returns 400 when body empty", async () => {
@@ -125,6 +126,19 @@ describe("POST /auth/register", () => {
       .send({});
 
     expect(res.status).toBe(400);
+    expect(res.body.error).toBe("EMAIL_OR_PASSWORD_NOT_SPECIFIED");
+  });
+
+  it("returns 400 when password is too short", async () => {
+    const res = await request(app)
+      .post("/auth/register")
+      .send({
+        email: "x@y.com",
+        password: "short",
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("PASSWORD_TOO_SHORT");
   });
 });
 
@@ -134,14 +148,14 @@ describe("POST /auth/login", () => {
       .post("/auth/register")
       .send({
         email: "user@b.com",
-        password: "secret",
+        password: "secret12",
       });
 
     const res = await request(app)
       .post("/auth/login")
       .send({
         email: "user@b.com",
-        password: "secret",
+        password: "secret12",
       });
 
     expect(res.status).toBe(200);

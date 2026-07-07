@@ -2,6 +2,9 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma.js";
 import { signToken } from "../lib/jwt.js";
+import { $Enums } from "@prisma/client";
+import { AppError } from "../lib/errors.js";
+import { createUser } from "../services/users.js";
 
 const router = Router();
 
@@ -48,23 +51,10 @@ const router = Router();
 router.post("/register", async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
-      return res.status(400).json({ error: "email and password required" });
-    }
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password)
+      throw new AppError("EMAIL_OR_PASSWORD_NOT_SPECIFIED", 400, "Email and password are required")
 
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
-      return res.status(409).json({ error: "user exists" });
-    }
-
-    const hashed = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        bcryptPassword: hashed,
-      },
-    });
+    const user = await createUser(email, password, $Enums.UserRole.STUDENT)
 
     res.json({
       user: { id: user.id, email: user.email },
