@@ -1,0 +1,29 @@
+# See https://help.github.com/articles/ignoring-files for more about ignoring files.
+# dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.yarn/patches/
+.yarn/sdks/
+.yarn/uninstall/
+.yarn/upgrade/
+
+# testing
+coverage/
+
+# production
+.next/
+out/
+
+# env
+.env*.local
+
+# lockfile
+pnpm-lock.yaml
+
+# turborepo
+.turbo/
