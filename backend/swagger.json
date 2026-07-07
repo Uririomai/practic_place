@@ -1,0 +1,846 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Практика API",
+    "version": "1.0.0",
+    "description": "API для сервиса управления производственной практикой студентов"
+  },
+  "servers": [{ "url": "/", "description": "Local dev" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" } }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["STUDENT", "ADMIN"] },
+          "activeCohortId": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "email": { "type": "string" }
+            }
+          },
+          "token": { "type": "string" }
+        }
+      },
+      "Cohort": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "applicationStart": { "type": "string", "format": "date-time" },
+          "applicationEnd": { "type": "string", "format": "date-time" },
+          "practiceStart": { "type": "string", "format": "date-time" },
+          "practiceEnd": { "type": "string", "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CohortInput": {
+        "type": "object",
+        "required": ["name", "applicationStart", "applicationEnd", "practiceStart", "practiceEnd"],
+        "properties": {
+          "name": { "type": "string" },
+          "applicationStart": { "type": "string", "format": "date-time" },
+          "applicationEnd": { "type": "string", "format": "date-time" },
+          "practiceStart": { "type": "string", "format": "date-time" },
+          "practiceEnd": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CohortRole": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "cohortId": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "Application": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "cohortId": { "type": "string" },
+          "roleId": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+          "reviewComment": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "user": { "$ref": "#/components/schemas/User" },
+          "cohort": { "$ref": "#/components/schemas/Cohort" },
+          "role": { "$ref": "#/components/schemas/CohortRole" }
+        }
+      },
+      "SurveyField": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "cohortId": { "type": "string" },
+          "label": { "type": "string" },
+          "type": { "type": "string" },
+          "options": { "type": "object", "nullable": true },
+          "order": { "type": "integer" }
+        }
+      },
+      "ApplicationAnswer": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "applicationId": { "type": "string" },
+          "fieldId": { "type": "string" },
+          "value": { "type": "string" },
+          "field": { "$ref": "#/components/schemas/SurveyField" }
+        }
+      },
+      "PracticeData": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "applicationId": { "type": "string" },
+          "studentFullName": { "type": "string", "nullable": true },
+          "groupName": { "type": "string", "nullable": true },
+          "docFields": { "type": "object" },
+          "reportFileUrl": { "type": "string", "nullable": true },
+          "isReportApproved": { "type": "boolean" }
+        }
+      },
+      "TaskCard": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "applicationId": { "type": "string" },
+          "date": { "type": "string", "format": "date-time" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "artifactLink": { "type": "string", "nullable": true },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TestTask": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "cohortId": { "type": "string" },
+          "content": { "type": "string" },
+          "publishedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" } } } } }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Registered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "User exists", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Logged in", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "401": { "description": "Invalid credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": ["Profile"],
+        "summary": "Get current user profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "patch": {
+        "tags": ["Profile"],
+        "summary": "Update current user profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "activeCohortId": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }
+        }
+      }
+    },
+    "/cohorts": {
+      "get": {
+        "tags": ["Cohorts"],
+        "summary": "List all cohorts",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Cohort list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Cohort" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Cohorts"],
+        "summary": "Create cohort",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CohortInput" } } }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cohort" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/cohorts/{id}": {
+      "get": {
+        "tags": ["Cohorts"],
+        "summary": "Get cohort by ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Cohort", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cohort" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["Cohorts"],
+        "summary": "Update cohort",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CohortInput" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cohort" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Cohorts"],
+        "summary": "Delete cohort",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "204": { "description": "Deleted" }
+        }
+      }
+    },
+    "/cohorts/{cohortId}/roles": {
+      "get": {
+        "tags": ["Roles"],
+        "summary": "List roles for cohort",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Role list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CohortRole" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Roles"],
+        "summary": "Create role",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": { "name": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CohortRole" } } } }
+        }
+      }
+    },
+    "/cohorts/{cohortId}/roles/{id}": {
+      "patch": {
+        "tags": ["Roles"],
+        "summary": "Update role",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": { "name": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CohortRole" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Roles"],
+        "summary": "Delete role",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" }
+        }
+      }
+    },
+    "/cohorts/{cohortId}/fields": {
+      "get": {
+        "tags": ["Survey Fields"],
+        "summary": "List survey fields for cohort",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Field list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/SurveyField" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Survey Fields"],
+        "summary": "Create survey field",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["label", "type"],
+                "properties": {
+                  "label": { "type": "string" },
+                  "type": { "type": "string" },
+                  "options": { "type": "object", "nullable": true },
+                  "order": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SurveyField" } } } }
+        }
+      }
+    },
+    "/cohorts/{cohortId}/fields/order": {
+      "put": {
+        "tags": ["Survey Fields"],
+        "summary": "Reorder survey fields",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "order": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reordered", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" } } } } } }
+        }
+      }
+    },
+    "/cohorts/{cohortId}/fields/{id}": {
+      "patch": {
+        "tags": ["Survey Fields"],
+        "summary": "Update survey field",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": { "type": "string" },
+                  "type": { "type": "string" },
+                  "options": { "type": "object", "nullable": true },
+                  "order": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SurveyField" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Survey Fields"],
+        "summary": "Delete survey field",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/cohorts/{cohortId}/test-tasks": {
+      "get": {
+        "tags": ["Test Tasks"],
+        "summary": "List test tasks for cohort",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Test task list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TestTask" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Test Tasks"],
+        "summary": "Create test task",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string" },
+                  "publishedAt": { "type": "string", "format": "date-time", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestTask" } } } }
+        }
+      }
+    },
+    "/cohorts/{cohortId}/test-tasks/{id}": {
+      "patch": {
+        "tags": ["Test Tasks"],
+        "summary": "Update test task",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string" },
+                  "publishedAt": { "type": "string", "format": "date-time", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestTask" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Test Tasks"],
+        "summary": "Delete test task",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "cohortId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/applications": {
+      "post": {
+        "tags": ["Applications"],
+        "summary": "Create application",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["cohortId"],
+                "properties": {
+                  "cohortId": { "type": "string" },
+                  "roleId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Application" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Cohort not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Already applied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "get": {
+        "tags": ["Applications"],
+        "summary": "List applications (scoped by role & active cohort for admins)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Application list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Application" } } } } }
+        }
+      }
+    },
+    "/applications/{id}": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get application by ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Application", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Application" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["Applications"],
+        "summary": "Update own pending application (roleId only)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "roleId": { "type": "string", "nullable": true } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Application" } } } }
+        }
+      }
+    },
+    "/applications/{id}/review": {
+      "patch": {
+        "tags": ["Applications"],
+        "summary": "Review application (admin: approve/reject)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["APPROVED", "REJECTED"] },
+                  "reviewComment": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reviewed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Application" } } } }
+        }
+      }
+    },
+    "/applications/{id}/answers": {
+      "get": {
+        "tags": ["Answers"],
+        "summary": "Get answers for application",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Answer list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ApplicationAnswer" } } } } }
+        }
+      },
+      "put": {
+        "tags": ["Answers"],
+        "summary": "Replace all answers for application",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["answers"],
+                "properties": {
+                  "answers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "fieldId": { "type": "string" },
+                        "value": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Saved answers", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ApplicationAnswer" } } } } }
+        }
+      }
+    },
+    "/applications/{id}/doc-data": {
+      "get": {
+        "tags": ["Doc Data"],
+        "summary": "Get practice document data",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Doc data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PracticeData" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["Doc Data"],
+        "summary": "Update practice document data",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "studentFullName": { "type": "string" },
+                  "groupName": { "type": "string" },
+                  "docFields": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PracticeData" } } } }
+        }
+      }
+    },
+    "/applications/{id}/report": {
+      "put": {
+        "tags": ["Report"],
+        "summary": "Upload report file URL",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reportFileUrl"],
+                "properties": { "reportFileUrl": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PracticeData" } } } }
+        }
+      }
+    },
+    "/applications/{id}/report/approve": {
+      "post": {
+        "tags": ["Report"],
+        "summary": "Approve report (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Approved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PracticeData" } } } }
+        }
+      }
+    },
+    "/applications/{id}/report/reject": {
+      "post": {
+        "tags": ["Report"],
+        "summary": "Reject report (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Rejected", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PracticeData" } } } }
+        }
+      }
+    },
+    "/applications/{id}/tasks": {
+      "get": {
+        "tags": ["Tasks"],
+        "summary": "List task cards for application",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Task list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TaskCard" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Tasks"],
+        "summary": "Create task card (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["date", "title"],
+                "properties": {
+                  "date": { "type": "string", "format": "date-time" },
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "artifactLink": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskCard" } } } }
+        }
+      }
+    },
+    "/applications/{id}/tasks/{taskId}": {
+      "patch": {
+        "tags": ["Tasks"],
+        "summary": "Update task card (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "taskId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "artifactLink": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskCard" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Tasks"],
+        "summary": "Delete task card (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "taskId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    }
+  }
+}
