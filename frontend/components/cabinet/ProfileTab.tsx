@@ -8,14 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   User,
   Mail,
   Calendar,
   Hash,
-  ClipboardList,
   Pencil,
-  Check,
-  X,
+  GraduationCap,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/shared/api/client";
@@ -23,20 +28,12 @@ import { SurveyField } from "@/shared/api/types";
 
 const COHORT_ID = "test-cohort-id";
 
-const fieldLabels: Record<string, string> = {
-  fio: "ФИО",
-  group: "Группа",
-  course: "Курс",
-  desired_role: "Желаемая роль",
-  tech_stack: "Технологии",
-};
-
 export function ProfileTab() {
   const { user } = useAuth();
-  const { data, setData, isEmpty } = useSurveyData(COHORT_ID);
-  const [editing, setEditing] = useState(false);
-  const [editData, setEditData] = useState<Record<string, string>>({});
+  const { data: surveyData, setData: setSurveyData } = useSurveyData(COHORT_ID);
   const [fields, setFields] = useState<SurveyField[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -49,29 +46,28 @@ export function ProfileTab() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const startEditing = () => {
-    setEditData({ ...data });
-    setEditing(true);
+  const openModal = () => {
+    setForm({ ...surveyData });
+    setModalOpen(true);
   };
 
-  const cancelEditing = () => {
-    setEditing(false);
-    setEditData({});
-  };
-
-  const saveEditing = () => {
+  const handleSave = () => {
     setSaving(true);
-    // Имитация задержки сохранения
     setTimeout(() => {
-      setData(editData);
-      setEditing(false);
+      setSurveyData(form);
+      setModalOpen(false);
       setSaving(false);
-      showToast("success", "Данные анкеты сохранены");
+      showToast("success", "Данные профиля обновлены");
     }, 300);
   };
 
-  // Сортируем поля по order
   const sortedFields = [...fields].sort((a, b) => a.order - b.order);
+
+  // Маппинг полей анкеты для отображения
+  const surveyDisplay: Array<{ label: string; value: string }> = sortedFields.map((f) => ({
+    label: f.label,
+    value: surveyData[f.id] || "",
+  }));
 
   return (
     <div className="space-y-6">
@@ -92,15 +88,21 @@ export function ProfileTab() {
         <p className="text-muted-foreground">Информация о вашем аккаунте</p>
       </div>
 
-      {/* Данные пользователя */}
+      {/* Карточка: пользователь + данные анкеты */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Данные пользователя
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Данные пользователя
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={openModal}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          {/* Аватар + email */}
           <div className="flex items-center gap-3">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
               <User className="h-8 w-8" />
@@ -111,7 +113,8 @@ export function ProfileTab() {
             </div>
           </div>
 
-          <div className="grid gap-4 pt-4 border-t">
+          {/* Основные данные */}
+          <div className="grid gap-4 border-t pt-4">
             <div className="flex items-center gap-3">
               <Mail className="h-4 w-4 text-muted-foreground" />
               <div>
@@ -142,105 +145,21 @@ export function ProfileTab() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Данные анкеты */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5" />
-              Данные анкеты
-            </CardTitle>
-            {!editing && (
-              <Button variant="outline" size="sm" onClick={startEditing}>
-                <Pencil className="mr-2 h-4 w-4" />
-                {isEmpty ? "Заполнить" : "Изменить"}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isEmpty && !editing ? (
-            <div className="rounded-lg border border-dashed p-6 text-center">
-              <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-2 text-sm text-muted-foreground">
-                Данные анкеты не заполнены
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Заполните данные для участия в практике
-              </p>
-              <Button className="mt-4" size="sm" onClick={startEditing}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Заполнить анкету
-              </Button>
-            </div>
-          ) : editing ? (
-            <div className="space-y-4">
-              {sortedFields.map((field) => (
-                <div key={field.id}>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    {field.label}
-                    {field.required && (
-                      <span className="ml-1 text-destructive">*</span>
-                    )}
-                  </label>
-                  {field.type === "text" && (
-                    <Input
-                      value={editData[field.id] || ""}
-                      onChange={(e) =>
-                        setEditData((d) => ({ ...d, [field.id]: e.target.value }))
-                      }
-                      placeholder={field.placeholder}
-                    />
-                  )}
-                  {field.type === "textarea" && (
-                    <Textarea
-                      value={editData[field.id] || ""}
-                      onChange={(e) =>
-                        setEditData((d) => ({ ...d, [field.id]: e.target.value }))
-                      }
-                      placeholder={field.placeholder}
-                      rows={3}
-                    />
-                  )}
-                  {field.type === "select" && field.options && (
-                    <select
-                      value={editData[field.id] || ""}
-                      onChange={(e) =>
-                        setEditData((d) => ({ ...d, [field.id]: e.target.value }))
-                      }
-                      className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    >
-                      <option value="">Выберите...</option>
-                      {field.options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              ))}
-              <div className="flex gap-2 pt-2">
-                <Button onClick={saveEditing} disabled={saving} size="sm">
-                  <Check className="mr-2 h-4 w-4" />
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </Button>
-                <Button variant="outline" onClick={cancelEditing} size="sm">
-                  <X className="mr-2 h-4 w-4" />
-                  Отмена
-                </Button>
+          {/* Данные анкеты */}
+          {surveyDisplay.length > 0 && (
+            <div className="grid gap-4 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Данные анкеты
+                </p>
               </div>
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {sortedFields.map((field) => (
-                <div key={field.id} className="flex items-start justify-between border-b pb-3 last:border-0 last:pb-0">
+              {surveyDisplay.map((item) => (
+                <div key={item.label} className="flex items-start gap-3 pl-7">
                   <div>
-                    <p className="text-sm text-muted-foreground">{field.label}</p>
-                    <p className="font-medium">{data[field.id] || "—"}</p>
+                    <p className="text-sm text-muted-foreground">{item.label}</p>
+                    <p className="font-medium">{item.value || "—"}</p>
                   </div>
                 </div>
               ))}
@@ -266,6 +185,71 @@ export function ProfileTab() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Модалка редактирования */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Редактирование профиля</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Поля анкеты */}
+            {sortedFields.map((field) => (
+              <div key={field.id}>
+                <label className="mb-1.5 block text-sm font-medium">
+                  {field.label}
+                  {field.required && (
+                    <span className="ml-1 text-destructive">*</span>
+                  )}
+                </label>
+                {field.type === "text" && (
+                  <Input
+                    value={form[field.id] || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, [field.id]: e.target.value }))
+                    }
+                    placeholder={field.placeholder}
+                  />
+                )}
+                {field.type === "textarea" && (
+                  <Textarea
+                    value={form[field.id] || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, [field.id]: e.target.value }))
+                    }
+                    placeholder={field.placeholder}
+                    rows={3}
+                  />
+                )}
+                {field.type === "select" && field.options && (
+                  <select
+                    value={form[field.id] || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, [field.id]: e.target.value }))
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                  >
+                    <option value="">Выберите...</option>
+                    {field.options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Сохранение..." : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
