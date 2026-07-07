@@ -102,7 +102,7 @@ vi.mock("../lib/prisma.js", () => ({
       findUnique: async ({ where }: { where: { id: string; userId_cohortId?: { userId: string; cohortId: string } } }) => {
         if (where.userId_cohortId) {
           return fakeDb.apps.find(
-            (a) => a.userId === where.userId_cohortId.userId && a.cohortId === where.userId_cohortId.cohortId,
+            (a) => a.userId === where.userId_cohortId?.userId && a.cohortId === where.userId_cohortId?.cohortId,
           ) ?? null;
         }
         return fakeDb.apps.find((a) => a.id === where.id) ?? null;

@@ -407,7 +407,8 @@ router.post("/:id/tasks", authMiddleware, async (req, res, next) => {
 
 router.patch("/:id/tasks/:taskId", authMiddleware, async (req, res, next) => {
   try {
-    const { id, taskId } = req.params;
+    const id = req.params.id as string;
+    const taskId = req.params.taskId as string;
     const userId = req.user!.sub;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -439,7 +440,8 @@ router.patch("/:id/tasks/:taskId", authMiddleware, async (req, res, next) => {
 
 router.delete("/:id/tasks/:taskId", authMiddleware, async (req, res, next) => {
   try {
-    const { id, taskId } = req.params;
+    const id = req.params.id as string;
+    const taskId = req.params.taskId as string;
     const userId = req.user!.sub;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
