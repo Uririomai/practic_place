@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:integration": "docker compose -f test.compose.yml up --build --abort-on-container-exit --exit-code-from test",
     "test:watch": "vitest"
   },
   "keywords": [],

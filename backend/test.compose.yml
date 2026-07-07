@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_test
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  test:
+    build:
+      context: .
+      target: dev
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_test
+      JWT_SECRET: test-secret
+      PORT: 3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        npx prisma generate &&
+        npx prisma db push --accept-data-loss &&
+        npx vitest run src/test/integration.test.ts
+      "
