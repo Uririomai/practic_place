@@ -29,6 +29,52 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
 // Applications
 // ---------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /applications:
+ *   post:
+ *     tags: [Applications]
+ *     summary: Create application
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cohortId]
+ *             properties:
+ *               cohortId:
+ *                 type: string
+ *               roleId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Application'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Cohort not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Already applied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post("/", authMiddleware, async (req, res, next) => {
   try {
     const userId = req.user!.sub;
@@ -66,6 +112,24 @@ router.post("/", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications:
+ *   get:
+ *     tags: [Applications]
+ *     summary: List applications (student sees own, admin sees cohort per activeCohortId)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Application list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Application'
+ */
 router.get("/", authMiddleware, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user!.sub } });
@@ -94,6 +158,40 @@ router.get("/", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}:
+ *   get:
+ *     tags: [Applications]
+ *     summary: Get application by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Application
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Application'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/:id", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -119,6 +217,37 @@ router.get("/:id", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}:
+ *   patch:
+ *     tags: [Applications]
+ *     summary: Update own pending application (roleId only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               roleId:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Application'
+ */
 router.patch("/:id", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -142,6 +271,41 @@ router.patch("/:id", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/review:
+ *   patch:
+ *     tags: [Applications]
+ *     summary: "Review application (admin: approve/reject)"
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [APPROVED, REJECTED]
+ *               reviewComment:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Reviewed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Application'
+ */
 router.patch("/:id/review", authMiddleware, requireAdmin, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -168,6 +332,30 @@ router.patch("/:id/review", authMiddleware, requireAdmin, async (req, res, next)
 // Application answers
 // ---------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /applications/{id}/answers:
+ *   get:
+ *     tags: [Answers]
+ *     summary: Get answers for application
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Answer list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ApplicationAnswer'
+ */
 router.get("/:id/answers", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -188,6 +376,47 @@ router.get("/:id/answers", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/answers:
+ *   put:
+ *     tags: [Answers]
+ *     summary: Replace all answers for application
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [answers]
+ *             properties:
+ *               answers:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     fieldId:
+ *                       type: string
+ *                     value:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: Saved answers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ApplicationAnswer'
+ */
 router.put("/:id/answers", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -224,6 +453,34 @@ router.put("/:id/answers", authMiddleware, async (req, res, next) => {
 // Practice data (doc data)
 // ---------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /applications/{id}/doc-data:
+ *   get:
+ *     tags: [Doc Data]
+ *     summary: Get practice document data
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Doc data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PracticeData'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/:id/doc-data", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -244,6 +501,40 @@ router.get("/:id/doc-data", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/doc-data:
+ *   patch:
+ *     tags: [Doc Data]
+ *     summary: Update practice document data
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               studentFullName:
+ *                 type: string
+ *               groupName:
+ *                 type: string
+ *               docFields:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PracticeData'
+ */
 router.patch("/:id/doc-data", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -276,6 +567,38 @@ router.patch("/:id/doc-data", authMiddleware, async (req, res, next) => {
 // Report
 // ---------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /applications/{id}/report:
+ *   put:
+ *     tags: [Report]
+ *     summary: Upload report file URL
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reportFileUrl]
+ *             properties:
+ *               reportFileUrl:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PracticeData'
+ */
 router.put("/:id/report", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -301,6 +624,28 @@ router.put("/:id/report", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/report/approve:
+ *   post:
+ *     tags: [Report]
+ *     summary: Approve report (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Approved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PracticeData'
+ */
 router.post("/:id/report/approve", authMiddleware, requireAdmin, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -320,6 +665,28 @@ router.post("/:id/report/approve", authMiddleware, requireAdmin, async (req, res
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/report/reject:
+ *   post:
+ *     tags: [Report]
+ *     summary: Reject report (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Rejected
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PracticeData'
+ */
 router.post("/:id/report/reject", authMiddleware, requireAdmin, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -345,6 +712,30 @@ export default router;
 // Task cards
 // ---------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /applications/{id}/tasks:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: List task cards for application
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/TaskCard'
+ */
 router.get("/:id/tasks", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -371,6 +762,45 @@ router.get("/:id/tasks", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/tasks:
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Create task card (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [date, title]
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               artifactLink:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TaskCard'
+ */
 router.post("/:id/tasks", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -405,6 +835,46 @@ router.post("/:id/tasks", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/tasks/{taskId}:
+ *   patch:
+ *     tags: [Tasks]
+ *     summary: Update task card (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: taskId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               artifactLink:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TaskCard'
+ */
 router.patch("/:id/tasks/:taskId", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;
@@ -438,6 +908,29 @@ router.patch("/:id/tasks/:taskId", authMiddleware, async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/tasks/{taskId}:
+ *   delete:
+ *     tags: [Tasks]
+ *     summary: Delete task card (admin)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: taskId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 router.delete("/:id/tasks/:taskId", authMiddleware, async (req, res, next) => {
   try {
     const id = req.params.id as string;

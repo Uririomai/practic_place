@@ -34,6 +34,24 @@ router.use(requireAdmin);
 // Cohorts
 // -----------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /cohorts:
+ *   get:
+ *     tags: [Cohorts]
+ *     summary: List all cohorts
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cohort list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Cohort'
+ */
 router.get("/", async (_req, res, next) => {
   try {
     const cohorts = await prisma.cohort.findMany({
@@ -46,6 +64,34 @@ router.get("/", async (_req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts:
+ *   post:
+ *     tags: [Cohorts]
+ *     summary: Create cohort
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CohortInput'
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cohort'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post("/", async (req, res, next) => {
   try {
     const {
@@ -75,6 +121,34 @@ router.post("/", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{id}:
+ *   get:
+ *     tags: [Cohorts]
+ *     summary: Get cohort by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Cohort
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cohort'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/:id", async (req, res, next) => {
   try {
     const cohort = await prisma.cohort.findUnique({
@@ -90,6 +164,33 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{id}:
+ *   patch:
+ *     tags: [Cohorts]
+ *     summary: Update cohort
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CohortInput'
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cohort'
+ */
 router.patch("/:id", async (req, res, next) => {
   try {
     const {
@@ -119,6 +220,24 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{id}:
+ *   delete:
+ *     tags: [Cohorts]
+ *     summary: Delete cohort
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 router.delete("/:id", async (req, res, next) => {
   try {
     await prisma.cohort.delete({
@@ -135,6 +254,30 @@ router.delete("/:id", async (req, res, next) => {
 // Roles
 // -----------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/roles:
+ *   get:
+ *     tags: [Roles]
+ *     summary: List roles for cohort
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Role list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/CohortRole'
+ */
 router.get("/:cohortId/roles", async (req, res, next) => {
   try {
     const roles = await prisma.cohortRole.findMany({
@@ -149,6 +292,38 @@ router.get("/:cohortId/roles", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/roles:
+ *   post:
+ *     tags: [Roles]
+ *     summary: Create role
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CohortRole'
+ */
 router.post("/:cohortId/roles", async (req, res, next) => {
   try {
     const { name } = req.body;
@@ -176,6 +351,49 @@ router.post("/:cohortId/roles", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/roles/{id}:
+ *   patch:
+ *     tags: [Roles]
+ *     summary: Update role
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CohortRole'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.patch("/:cohortId/roles/:id", async (req, res, next) => {
   try {
     const { name } = req.body;
@@ -204,6 +422,29 @@ router.patch("/:cohortId/roles/:id", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/roles/{id}:
+ *   delete:
+ *     tags: [Roles]
+ *     summary: Delete role
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 router.delete("/:cohortId/roles/:id", async (req, res, next) => {
   try {
     const role = await prisma.cohortRole.findFirst({
@@ -230,6 +471,30 @@ router.delete("/:cohortId/roles/:id", async (req, res, next) => {
 // Survey fields
 // -----------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields:
+ *   get:
+ *     tags: [Survey Fields]
+ *     summary: List survey fields for cohort
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Field list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/SurveyField'
+ */
 router.get("/:cohortId/fields", async (req, res, next) => {
   try {
     const fields = await prisma.surveyField.findMany({
@@ -247,6 +512,45 @@ router.get("/:cohortId/fields", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields:
+ *   post:
+ *     tags: [Survey Fields]
+ *     summary: Create survey field
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [label, type]
+ *             properties:
+ *               label:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               options:
+ *                 type: object
+ *                 nullable: true
+ *               order:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SurveyField'
+ */
 router.post("/:cohortId/fields", async (req, res, next) => {
   try {
     const { label, type, options, order } = req.body;
@@ -280,6 +584,48 @@ router.post("/:cohortId/fields", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields/order:
+ *   put:
+ *     tags: [Survey Fields]
+ *     summary: Reorder survey fields
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [items]
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     order:
+ *                       type: integer
+ *     responses:
+ *       200:
+ *         description: Reordered
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ */
 router.put("/:cohortId/fields/order", async (req, res, next) => {
   try {
     const { items } = req.body;
@@ -303,6 +649,54 @@ router.put("/:cohortId/fields/order", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields/{id}:
+ *   patch:
+ *     tags: [Survey Fields]
+ *     summary: Update survey field
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               label:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               options:
+ *                 type: object
+ *                 nullable: true
+ *               order:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SurveyField'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.patch("/:cohortId/fields/:id", async (req, res, next) => {
   try {
     const field = await prisma.surveyField.findFirst({
@@ -336,6 +730,29 @@ router.patch("/:cohortId/fields/:id", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields/{id}:
+ *   delete:
+ *     tags: [Survey Fields]
+ *     summary: Delete survey field
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 router.delete("/:cohortId/fields/:id", async (req, res, next) => {
   try {
     const field = await prisma.surveyField.findFirst({
@@ -362,6 +779,30 @@ router.delete("/:cohortId/fields/:id", async (req, res, next) => {
 // Test tasks
 // -----------------------------------------------------------------------------
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/test-tasks:
+ *   get:
+ *     tags: [Test Tasks]
+ *     summary: List test tasks for cohort
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Test task list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/TestTask'
+ */
 router.get("/:cohortId/test-tasks", async (req, res, next) => {
   try {
     const tasks = await prisma.testTask.findMany({
@@ -376,6 +817,42 @@ router.get("/:cohortId/test-tasks", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/test-tasks:
+ *   post:
+ *     tags: [Test Tasks]
+ *     summary: Create test task
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [content]
+ *             properties:
+ *               content:
+ *                 type: string
+ *               publishedAt:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *     responses:
+ *       201:
+ *         description: Created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TestTask'
+ */
 router.post("/:cohortId/test-tasks", async (req, res, next) => {
   try {
     const { content, publishedAt } = req.body;
@@ -405,6 +882,51 @@ router.post("/:cohortId/test-tasks", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/test-tasks/{id}:
+ *   patch:
+ *     tags: [Test Tasks]
+ *     summary: Update test task
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *               publishedAt:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TestTask'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.patch("/:cohortId/test-tasks/:id", async (req, res, next) => {
   try {
     const task = await prisma.testTask.findFirst({
@@ -436,6 +958,29 @@ router.patch("/:cohortId/test-tasks/:id", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /cohorts/{cohortId}/test-tasks/{id}:
+ *   delete:
+ *     tags: [Test Tasks]
+ *     summary: Delete test task
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: cohortId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 router.delete("/:cohortId/test-tasks/:id", async (req, res, next) => {
   try {
     const task = await prisma.testTask.findFirst({

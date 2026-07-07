@@ -6,6 +6,24 @@ const router = Router();
 
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /me:
+ *   get:
+ *     tags: [Profile]
+ *     summary: Get current user profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ */
 router.get("/", async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
@@ -25,6 +43,31 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /me:
+ *   patch:
+ *     tags: [Profile]
+ *     summary: Update current user profile (set activeCohortId)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               activeCohortId:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Updated profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ */
 router.patch("/", async (req, res, next) => {
   try {
     const { activeCohortId } = req.body;
