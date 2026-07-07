@@ -1,18 +1,11 @@
-import "dotenv/config";
-import express from "express";
-import authRouter from "./routes/auth.js";
+import dotenv from "dotenv";
+import { createApp } from "./app.js"
 
-const app = express();
-app.use(express.json());
+dotenv.config();
 
-app.use("/auth", authRouter);
-
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
-});
+const app = createApp();
 
 const port = process.env.PORT ?? 3000;
 app.listen(port, () => {
   console.log(`listening on :${port}`);
 });
-
