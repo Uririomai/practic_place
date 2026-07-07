@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,19 +13,13 @@ import {
   Upload,
   X,
   File,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { StudentDocumentData } from "@/shared/api/types";
 
 type DocStatus = "ready" | "pending" | "not_ready";
-
-interface DocumentCard {
-  id: string;
-  title: string;
-  description: string;
-  status: DocStatus;
-  statusLabel: string;
-}
 
 export function DocumentsTab() {
   const [doc, setDoc] = useState<StudentDocumentData | null>(null);
@@ -50,39 +44,50 @@ export function DocumentsTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  const documents: DocumentCard[] = [
-    {
-      id: "iz",
-      title: "Индивидуальное задание",
-      description: "Формируется на основе заполненных вами полей",
-      status: doc?.practice_topic ? "ready" : "not_ready",
-      statusLabel: doc?.practice_topic ? "Готово к скачиванию" : "Заполните данные",
-    },
-    {
-      id: "review",
-      title: "Отзыв о практике",
-      description: "Заполняется администратором после завершения практики",
-      status: doc?.review_characteristic ? "ready" : "pending",
-      statusLabel: doc?.review_characteristic ? "Готово" : "Ожидает заполнения",
-    },
-    {
-      id: "title",
-      title: "Титульный лист",
-      description: "Требуется загрузка отчёта и одобрение администратором",
-      status: doc?.report_admin_approved ? "ready" : "not_ready",
-      statusLabel: doc?.report_admin_approved ? "Готово" : "Ожидает отчёт",
-    },
-  ];
+  // Статусы для каждого документа
+  const izStatus: DocStatus = doc?.practice_topic ? "ready" : "not_ready";
+  const reviewStatus: DocStatus = doc?.review_characteristic ? "ready" : "pending";
+  const titleStatus: DocStatus = doc?.report_admin_approved
+    ? "ready"
+    : reportFile
+    ? "pending"
+    : "not_ready";
 
-  const statusIcon = (status: DocStatus) => {
-    switch (status) {
-      case "ready":
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case "pending":
-        return <Clock className="h-5 w-5 text-yellow-600" />;
-      case "not_ready":
-        return <AlertCircle className="h-5 w-5 text-muted-foreground" />;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/pdf",
+    ];
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (!allowedTypes.includes(file.type) && ![".docx", ".pdf"].includes(ext)) {
+      showToast("error", "Допустимые форматы: DOCX, PDF");
+      return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("error", "Файл слишком большой (максимум 10 МБ)");
+      return;
+    }
+
+    setUploading(true);
+    setTimeout(() => {
+      setReportFile({ name: file.name, size: file.size });
+      setUploading(false);
+      showToast("success", "Отчёт загружен. Ожидайте проверки администратором.");
+    }, 800);
+  };
+
+  const handleRemoveFile = () => {
+    setReportFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " Б";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " КБ";
+    return (bytes / (1024 * 1024)).toFixed(1) + " МБ";
   };
 
   const statusBadge = (status: DocStatus) => {
@@ -96,52 +101,6 @@ export function DocumentsTab() {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Проверяем формат
-    const allowedTypes = [
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-      "application/pdf", // .pdf
-    ];
-    const allowedExtensions = [".docx", ".pdf"];
-    const ext = "." + file.name.split(".").pop()?.toLowerCase();
-
-    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
-      showToast("error", "Допустимые форматы: DOCX, PDF");
-      return;
-    }
-
-    // Проверяем размер (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      showToast("error", "Файл слишком большой (максимум 10 МБ)");
-      return;
-    }
-
-    setUploading(true);
-
-    // Имитация загрузки
-    setTimeout(() => {
-      setReportFile({ name: file.name, size: file.size });
-      setUploading(false);
-      showToast("success", "Отчёт успешно загружен");
-    }, 800);
-  };
-
-  const handleRemoveFile = () => {
-    setReportFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " Б";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " КБ";
-    return (bytes / (1024 * 1024)).toFixed(1) + " МБ";
-  };
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -150,7 +109,7 @@ export function DocumentsTab() {
           <p className="text-muted-foreground">Документы по практике</p>
         </div>
         <div className="grid gap-4">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-32 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
@@ -177,90 +136,149 @@ export function DocumentsTab() {
         <p className="text-muted-foreground">Документы по практике</p>
       </div>
 
-      {/* Генерируемые документы */}
-      <div className="grid gap-4">
-        {documents.map((d) => (
-          <Card key={d.id}>
-            <CardContent className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-4">
-                {statusIcon(d.status)}
+      {/* Индикатор прогресса */}
+      <Card className="bg-primary/5 border-primary/20">
+        <CardContent className="flex items-center gap-4 p-4">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <div className="flex-1">
+            <p className="text-sm font-medium">Прогресс оформления</p>
+            <div className="mt-2 flex gap-2">
+              <div className={`h-2 flex-1 rounded-full ${izStatus === "ready" ? "bg-green-500" : "bg-muted"}`} />
+              <div className={`h-2 flex-1 rounded-full ${reviewStatus === "ready" ? "bg-green-500" : reviewStatus === "pending" ? "bg-yellow-400" : "bg-muted"}`} />
+              <div className={`h-2 flex-1 rounded-full ${titleStatus === "ready" ? "bg-green-500" : titleStatus === "pending" ? "bg-yellow-400" : "bg-muted"}`} />
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {izStatus === "ready" && reviewStatus === "ready" && titleStatus === "ready"
+                ? "Все документы готовы"
+                : `ИЗ: ${izStatus === "ready" ? "✓" : "—"} · Отзыв: ${reviewStatus === "ready" ? "✓" : reviewStatus === "pending" ? "ожидание" : "—"} · Титул: ${titleStatus === "ready" ? "✓" : titleStatus === "pending" ? "ожидание" : "—"}`}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Сгенерированные документы */}
+      <div>
+        <h3 className="mb-3 text-sm font-medium text-muted-foreground">Готовые документы</h3>
+        <div className="grid gap-3">
+          {/* ИЗ */}
+          <Card>
+            <CardContent className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                </div>
                 <div>
-                  <p className="font-medium">{d.title}</p>
-                  <p className="text-sm text-muted-foreground">{d.description}</p>
+                  <p className="font-medium">Индивидуальное задание</p>
+                  <p className="text-xs text-muted-foreground">
+                    {izStatus === "ready" ? "Сформировано на основе анкеты" : "Заполните анкету для генерации"}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                {statusBadge(d.status)}
-                {d.status === "ready" && (
-                  <Button size="sm" variant="outline">
-                    <Download className="mr-2 h-4 w-4" />
-                    Скачать
+              <div className="flex items-center gap-2">
+                {statusBadge(izStatus)}
+                {izStatus === "ready" && (
+                  <Button size="sm" variant="ghost">
+                    <Download className="h-4 w-4" />
                   </Button>
                 )}
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {/* Загрузка отчёта */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Отчёт о практике
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Загрузите отчёт в формате DOCX или PDF. Файл появится в панели администратора для проверки.
-          </p>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".docx,.pdf"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-
-          {reportFile ? (
-            <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
+          {/* Отзыв */}
+          <Card>
+            <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <File className="h-8 w-8 text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                </div>
                 <div>
-                  <p className="font-medium">{reportFile.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatSize(reportFile.size)}
+                  <p className="font-medium">Отзыв о практике</p>
+                  <p className="text-xs text-muted-foreground">
+                    {reviewStatus === "ready"
+                      ? "Заполнен администратором"
+                      : "Ожидает заполнения администратором"}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                  Загружен
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRemoveFile}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                {statusBadge(reviewStatus)}
+                {reviewStatus === "ready" && (
+                  <Button size="sm" variant="ghost">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Титульный лист + отчёт */}
+      <div>
+        <h3 className="mb-3 text-sm font-medium text-muted-foreground">Титульный лист</h3>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">Титульный лист</CardTitle>
+                {statusBadge(titleStatus)}
               </div>
             </div>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full border-dashed"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              {uploading ? "Загрузка..." : "Выберите файл (DOCX или PDF)"}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+            <CardDescription>
+              {titleStatus === "ready"
+                ? "Документ готов к скачиванию"
+                : titleStatus === "pending"
+                ? "Отчёт загружен. Ожидайте проверки администратором."
+                : "Загрузите отчёт, чтобы сформировать титульный лист"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".docx,.pdf"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {titleStatus === "ready" ? (
+              <Button className="w-full">
+                <Download className="mr-2 h-4 w-4" />
+                Скачать титульный лист
+              </Button>
+            ) : reportFile ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+                  <div className="flex items-center gap-2">
+                    <File className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">{reportFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatSize(reportFile.size)}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={handleRemoveFile}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  Администратор проверит отчёт и одобрит формирование титульного листа
+                </p>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full border-dashed"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {uploading ? "Загрузка..." : "Загрузить отчёт (DOCX или PDF)"}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
