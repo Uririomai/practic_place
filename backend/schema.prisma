@@ -4,18 +4,144 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://postgres:12345678@127.0.0.1:5433/app" // env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
-enum Role {
+enum UserRole {
   STUDENT
   ADMIN
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      Role
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  email            String   @unique
+  password_hash    String
+  role             UserRole @default(STUDENT)
+  created_at       DateTime @default(now())
+  
+  // Контекст для админа: над какой когортой он работает сейчас
+  active_cohort_id String?
+  activeCohort     Cohort?  @relation("ActiveCohort", fields: [active_cohort_id], references: [id])
+  
+  applications     Application[]
+}
+
+model Cohort {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  application_start DateTime
+  application_end   DateTime
+  practice_start    DateTime
+  practice_end      DateTime
+  
+  created_at        DateTime @default(now())
+
+  // Связи
+  cohortRoles    CohortRole[]
+  applications   Application[]
+  surveyFields   SurveyField[]
+  testTasks      TestTask[]
+  adminContext   User[]        @relation("ActiveCohort")
+}
+
+model CohortRole {
+  id           String        @id @default(cuid())
+  cohort_id    String
+  name         String
+  cohort       Cohort        @relation(fields: [cohort_id], references: [id])
+  applications Application[]
+
+  @@unique([cohort_id, name])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Application {
+  id             String            @id @default(cuid())
+  user_id        String
+  cohort_id      String
+  role_id        String?
+  status         ApplicationStatus @default(PENDING)
+  review_comment String?
+  created_at     DateTime          @default(now())
+
+  user           User              @relation(fields: [user_id], references: [id])
+  cohort         Cohort            @relation(fields: [cohort_id], references: [id])
+  role           CohortRole?       @relation(fields: [role_id], references: [id])
+  
+  // Гибкая анкета
+  answers        ApplicationAnswer[]
+  // Данные для документов (1:1)
+  docData        PracticeData?
+
+  @@unique([user_id, cohort_id])
+}
+
+// Гибкая структура анкеты
+model SurveyField {
+  id        String    @id @default(cuid())
+  cohort_id String
+  label     String
+  type      String    // "text", "select" и т.д.
+  options   Json?     // Для select/radio
+  order     Int
+  
+  cohort    Cohort    @relation(fields: [cohort_id], references: [id])
+  answers   ApplicationAnswer[]
+}
+
+model ApplicationAnswer {
+  id             String      @id @default(cuid())
+  application_id String
+  field_id       String
+  value          String
+  
+  application    Application @relation(fields: [application_id], references: [id])
+  field          SurveyField @relation(fields: [field_id], references: [id])
+
+  @@unique([application_id, field_id])
+}
+
+// Данные для документов (гибрид: поля + JSON для шаблонов)
+model PracticeData {
+  id             String  @id @default(cuid())
+  application_id String  @unique
+  
+  // Поля для фильтрации в админке
+  student_fio    String?
+  group          String?
+  
+  // Вся "динамика" для docxtemplater в одном месте
+  doc_fields     Json    @default("{}") 
+  
+  report_file_url       String?
+  report_admin_approved Boolean @default(false)
+
+  application    Application @relation(fields: [application_id], references: [id])
+}
+
+model TaskCard {
+  id             String   @id @default(cuid())
+  application_id String
+  date           DateTime
+  title          String
+  description    String
+  artifact_link  String?
+  updated_at     DateTime @updatedAt
+
+  application    Application @relation(fields: [application_id], references: [id])
+
+  @@unique([application_id, date])
+}
+
+model TestTask {
+  id           String    @id @default(cuid())
+  cohort_id    String
+  content      String
+  published_at DateTime?
+  cohort       Cohort    @relation(fields: [cohort_id], references: [id])
 }
