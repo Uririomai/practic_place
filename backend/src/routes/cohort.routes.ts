@@ -37,7 +37,7 @@ router.use(requireAdmin);
 router.get("/", async (_req, res, next) => {
   try {
     const cohorts = await prisma.cohort.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     });
 
     res.json(cohorts);
