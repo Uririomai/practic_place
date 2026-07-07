@@ -36,6 +36,17 @@ services:
       retries: 10
       start_period: 10s
 
+  migrate:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.dev
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://postgres:12345678@db:5432/app
+    depends_on:
+      db:
+        condition: service_healthy
+
 
 volumes:
   pgdata:
