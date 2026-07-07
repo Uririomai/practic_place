@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/form";
 import { SurveyField } from "@/shared/api/types";
 import { api } from "@/shared/api/client";
-import { useState } from "react";
+import { useSurveyData } from "@/shared/hooks/use-survey-data";
+import { useState, useEffect } from "react";
 
 interface SurveyFormProps {
   cohortId: string;
@@ -36,6 +37,7 @@ const createSurveySchema = (fields: SurveyField[]) => {
 type SurveyFormData = z.infer<ReturnType<typeof createSurveySchema>>;
 
 export function SurveyForm({ cohortId, fields }: SurveyFormProps) {
+  const { data: surveyData, setData: setSurveyData } = useSurveyData(cohortId);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -45,20 +47,40 @@ export function SurveyForm({ cohortId, fields }: SurveyFormProps) {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Сортируем поля по order
+  const sortedFields = [...fields].sort((a, b) => a.order - b.order);
+
   const form = useForm<SurveyFormData>({
     resolver: zodResolver(createSurveySchema(fields)),
     defaultValues: {},
   });
 
+  // Подставляем данные из профиля при загрузке
+  useEffect(() => {
+    if (Object.keys(surveyData).length > 0) {
+      sortedFields.forEach((field) => {
+        if (surveyData[field.id]) {
+          form.setValue(field.id, surveyData[field.id]);
+        }
+      });
+    }
+  }, [surveyData, fields]);
+
   const onSubmit = async (data: SurveyFormData) => {
     setSubmitting(true);
     try {
-      // Фильтруем undefined значения (опциональные поля)
-      const surveyData: Record<string, string> = {};
+      // Фильтруем undefined значения
+      const surveyPayload: Record<string, string> = {};
       for (const [key, value] of Object.entries(data)) {
-        if (value !== undefined) surveyData[key] = value;
+        if (value !== undefined) surveyPayload[key] = value;
       }
-      await api.applications.submit({ cohortId, surveyData });
+
+      // Отправляем заявку
+      await api.applications.submit({ cohortId, surveyData: surveyPayload });
+
+      // Сохраняем данные в профиль (двусторонняя синхронизация)
+      setSurveyData(surveyPayload);
+
       setIsSubmitted(true);
       showToast("success", "Заявка успешно отправлена!");
     } catch {
@@ -87,7 +109,7 @@ export function SurveyForm({ cohortId, fields }: SurveyFormProps) {
             Заявка успешно отправлена!
           </h3>
           <p className="mt-2 text-green-600">
-            Перейдите к тестовому заданию
+            Данные анкеты сохранены в профиле
           </p>
         </div>
       </div>
@@ -109,7 +131,7 @@ export function SurveyForm({ cohortId, fields }: SurveyFormProps) {
       )}
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {fields.map((field) => (
+        {sortedFields.map((field) => (
           <FormItem key={field.id}>
             <FormLabel required={field.required}>{field.label}</FormLabel>
             {field.type === "text" && (
