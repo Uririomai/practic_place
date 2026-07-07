@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { api, apiClient } from '@/shared/api/client';
+import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/shared/api/types';
+import { api, apiClient } from '@/shared/api/client';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -12,11 +12,15 @@ export function useAuth() {
     if (stored) {
       setToken(stored);
       apiClient.setToken(stored);
+      // Загружаем данные пользователя с сервера
       api.auth.me()
-        .then(setUser)
+        .then((u) => setUser(u))
         .catch(() => {
+          // Токен невалиден — очищаем
           localStorage.removeItem('token');
+          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
           setToken(null);
+          apiClient.clearToken();
         })
         .finally(() => setLoading(false));
     } else {
@@ -24,28 +28,34 @@ export function useAuth() {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const response = await api.auth.login({ email, password });
+    // Сохраняем и в localStorage, и в cookie (middleware проверяет cookie)
     localStorage.setItem('token', response.token);
+    document.cookie = `token=${response.token}; path=/; SameSite=Lax`;
+    apiClient.setToken(response.token);
     setToken(response.token);
     setUser(response.user);
-    apiClient.setToken(response.token);
-  };
+    return response;
+  }, []);
 
-  const register = async (email: string, password: string) => {
+  const register = useCallback(async (email: string, password: string) => {
     const response = await api.auth.register({ email, password });
     localStorage.setItem('token', response.token);
+    document.cookie = `token=${response.token}; path=/; SameSite=Lax`;
+    apiClient.setToken(response.token);
     setToken(response.token);
     setUser(response.user);
-    apiClient.setToken(response.token);
-  };
+    return response;
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    apiClient.clearToken();
     setToken(null);
     setUser(null);
-    apiClient.clearToken();
-  };
+  }, []);
 
   return { user, token, loading, login, register, logout };
 }
