@@ -15,9 +15,11 @@ const FormItem = React.forwardRef<HTMLDivElement, FormItemProps>(
 );
 FormItem.displayName = "FormItem";
 
-interface FormLabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+interface FormLabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
+  required?: boolean;
+}
 const FormLabel = React.forwardRef<HTMLLabelElement, FormLabelProps>(
-  ({ className, ...props }, ref) => (
+  ({ className, required, children, ...props }, ref) => (
     <label
       ref={ref}
       className={cn(
@@ -25,7 +27,10 @@ const FormLabel = React.forwardRef<HTMLLabelElement, FormLabelProps>(
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {required && <span className="text-destructive">*</span>}
+    </label>
   )
 );
 FormLabel.displayName = "FormLabel";
