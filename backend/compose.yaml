@@ -25,6 +25,8 @@ services:
       DATABASE_URL: postgresql://postgres:12345678@db:5432/app
       JWT_SECRET: blah-blah
       PORT: "3000"
+      ADMIN_EMAIL: admin123@example.com
+      ADMIN_PASSWORD: 12345678
     depends_on:
       - db
     healthcheck:

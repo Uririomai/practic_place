@@ -6,6 +6,7 @@ import cohortRouter from "./routes/cohort.routes.js";
 import applicationRouter from "./routes/application.routes.js";
 import profileRouter from "./routes/profile.routes.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
+import { createInitialAdmin } from "./services/users.js";
 
 // ponytail: swagger-jsdoc reads @openapi JSDoc tags from route files
 const swaggerSpec = swaggerJsdoc({
