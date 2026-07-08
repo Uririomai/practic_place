@@ -35,5 +35,5 @@ services:
       sh -c "
         npx prisma generate &&
         npx prisma db push --accept-data-loss &&
-        npx vitest run src/test/integration.test.ts
+        npx vitest run
       "
