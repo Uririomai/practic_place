@@ -1,21 +1,20 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 
-const TABLES = [
-  "TaskCard",
-  "PracticeData",
-  "ApplicationAnswer",
-  "SurveyField",
-  "Application",
-  "CohortRole",
-  "TestTask",
-  "Cohort",
-  "User",
-] as const;
 
-/** Clean all tables in FK-safe order. Call in beforeEach. */
 export async function cleanDb() {
-  for (const t of TABLES) {
-    await prisma.$executeRawUnsafe(`DELETE FROM "${t}"`);
+  const modelNames = Object.values(Prisma.ModelName);
+
+  // Если у вас есть модели, которые нужно пропустить (например, системные), 
+  // их можно отфильтровать здесь
+  const tables = modelNames
+    .map((name) => `"${name}"`)
+    .join(", ");
+
+  if (tables) {
+    await prisma.$executeRawUnsafe(
+      `TRUNCATE TABLE ${tables} RESTART IDENTITY CASCADE;`
+    );
   }
 }
 

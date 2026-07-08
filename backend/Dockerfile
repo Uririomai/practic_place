@@ -6,9 +6,7 @@ RUN npm ci
 
 COPY . .
 
-RUN npx prisma generate
-RUN npm run build
-RUN npm prune --omit=dev
+RUN npx prisma generate && npm run build && npm prune --omit=dev
 
 # prod
 FROM node:22-alpine
