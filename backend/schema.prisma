@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  bcryptPassword String
+  role           UserRole @default(STUDENT)
+  createdAt      DateTime @default(now())
+
+  // Контекст для админа: над какой когортой он работает сейчас
+  activeCohortId String?
+  activeCohort   Cohort? @relation("ActiveCohort", fields: [activeCohortId], references: [id])
+
+  applications Application[]
+}
+
+model Cohort {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  applicationStart DateTime
+  applicationEnd   DateTime
+  practiceStart    DateTime
+  practiceEnd      DateTime
+
+  createdAt DateTime @default(now())
+
+  cohortRoles  CohortRole[]
+  applications Application[]
+  surveyFields SurveyField[]
+  testTasks    TestTask[]
+  adminContext User[]        @relation("ActiveCohort")
+}
+
+model CohortRole {
+  id       String @id @default(cuid())
+  cohortId String
+  name     String
+
+  cohort       Cohort        @relation(fields: [cohortId], references: [id])
+  applications Application[]
+
+  @@unique([cohortId, name])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Application {
+  id            String            @id @default(cuid())
+  userId        String
+  cohortId      String
+  roleId        String?
+  status        ApplicationStatus @default(PENDING)
+  reviewComment String?
+  createdAt     DateTime          @default(now())
+
+  user   User        @relation(fields: [userId], references: [id])
+  cohort Cohort      @relation(fields: [cohortId], references: [id])
+  role   CohortRole? @relation(fields: [roleId], references: [id])
+
+  answers   ApplicationAnswer[]
+  docData   PracticeData?
+  taskCards TaskCard[]
+
+  @@unique([userId, cohortId])
+}
+
+model SurveyField {
+  id       String @id @default(cuid())
+  cohortId String
+
+  label   String
+  type    String
+  options Json?
+  order   Int
+
+  cohort  Cohort              @relation(fields: [cohortId], references: [id])
+  answers ApplicationAnswer[]
+}
+
+model ApplicationAnswer {
+  id            String @id @default(cuid())
+  applicationId String
+  fieldId       String
+  value         String
+
+  application Application @relation(fields: [applicationId], references: [id])
+  field       SurveyField @relation(fields: [fieldId], references: [id])
+
+  @@unique([applicationId, fieldId])
+}
+
+model PracticeData {
+  id            String @id @default(cuid())
+  applicationId String @unique
+
+  studentFullName String?
+  groupName       String?
+
+  docFields Json @default("{}")
+
+  reportFileUrl    String?
+  isReportApproved Boolean @default(false)
+
+  application Application @relation(fields: [applicationId], references: [id])
+}
+
+model TaskCard {
+  id            String @id @default(cuid())
+  applicationId String
+
+  date         DateTime
+  title        String
+  description  String
+  artifactLink String?
+  updatedAt    DateTime @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@unique([applicationId, date])
+}
+
+model TestTask {
+  id       String @id @default(cuid())
+  cohortId String
+
+  content     String
+  publishedAt DateTime?
+
+  cohort Cohort @relation(fields: [cohortId], references: [id])
+}
