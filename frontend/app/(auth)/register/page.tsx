@@ -1,7 +1,23 @@
+"use client";
+
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { apiClient } from '@/shared/api/client';
 
 export default function RegisterPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Если уже авторизован — редирект в кабинет
+    const token = localStorage.getItem('token');
+    if (token) {
+      apiClient.setToken(token);
+      router.replace('/cabinet');
+    }
+  }, [router]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md space-y-6 p-8">

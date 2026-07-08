@@ -34,3 +34,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.next
+\.claude/**
+!\.claude/projects/**/MEMORY.md
+
+
+ТЗ.txt
+ARCHITECTURE.md
+CLAUDE.md
+docs
+ROADMAP.md
+

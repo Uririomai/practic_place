@@ -32,13 +32,14 @@ export function RegisterForm() {
     },
   });
 
-  const { register: registerUser } = useAuth();
   const router = useRouter();
+  const { register: registerUser } = useAuth();
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser(data.email, data.password);
-      router.push('/cabinet');
+      const response = await registerUser(data.email, data.password);
+      await new Promise((r) => setTimeout(r, 100));
+      router.push(response.user.role === 'admin' ? '/admin' : '/cabinet');
     } catch (error) {
       form.setError('email', {
         type: 'manual',

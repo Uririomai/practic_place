@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  *:focus {
+    outline: none;
+  }
+
+  input, textarea, select {
+    @apply focus:ring-0 focus:ring-offset-0;
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 220 10% 10%;

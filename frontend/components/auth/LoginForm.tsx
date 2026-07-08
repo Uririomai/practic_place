@@ -25,13 +25,14 @@ export function LoginForm() {
     },
   });
 
-  const { login } = useAuth();
   const router = useRouter();
+  const { login } = useAuth();
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      await login(data.email, data.password);
-      router.push('/cabinet');
+      const response = await login(data.email, data.password);
+      await new Promise((r) => setTimeout(r, 100));
+      router.push(response.user.role === 'admin' ? '/admin' : '/cabinet');
     } catch (error) {
       form.setError('email', {
         type: 'manual',
@@ -57,6 +58,7 @@ export function LoginForm() {
         <FormLabel>Пароль</FormLabel>
         <Input
           type="password"
+          autoComplete="current-password"
           {...form.register('password')}
         />
         {form.formState.errors.password && (
