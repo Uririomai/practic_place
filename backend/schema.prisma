@@ -52,11 +52,11 @@ model Cohort {
 
   createdAt DateTime @default(now())
 
-  cohortRoles  CohortRole[]
-  applications Application[]
-  surveyFields SurveyField[]
-  testTasks    TestTask[]
-  adminContext User[]        @relation("ActiveCohort")
+  cohortRoles       CohortRole[]
+  applications      Application[]
+  surveyFields      SurveyField[]
+  testTasks         TestTask[]
+  adminContext      User[]             @relation("ActiveCohort")
   documentTemplates DocumentTemplate[]
 }
 
@@ -67,6 +67,7 @@ model CohortRole {
 
   cohort       Cohort        @relation(fields: [cohortId], references: [id])
   applications Application[]
+  testTasks    TestTask[]
 
   @@unique([cohortId, name])
 }
@@ -93,7 +94,7 @@ model Application {
   answers   ApplicationAnswer[]
   docData   DocumentData?
   taskCards TaskCard[]
-  files ApplicationFile[]
+  files     ApplicationFile[]
 
   @@unique([userId, cohortId])
 }
@@ -107,7 +108,8 @@ model SurveyField {
   options Json?
   order   Int
 
-  cohort  Cohort              @relation(fields: [cohortId], references: [id])
+  cohort             Cohort              @relation(fields: [cohortId], references: [id])
+  applicationAnswers ApplicationAnswer[]
 }
 
 model ApplicationAnswer {
@@ -151,12 +153,12 @@ model ApplicationFile {
   id            String @id @default(cuid())
   applicationId String
 
-  type   FileType
-  storageUri    String
-  status FileStatus @default(PENDING)
-  comment String?
+  type       FileType
+  storageUri String
+  status     FileStatus @default(PENDING)
+  comment    String?
 
-  uploadedAt DateTime @default(now())
+  uploadedAt DateTime  @default(now())
   reviewedAt DateTime?
 
   application Application @relation(fields: [applicationId], references: [id])
