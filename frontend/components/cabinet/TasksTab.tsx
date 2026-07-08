@@ -83,7 +83,7 @@ export function TasksTab() {
   const [editingCard, setEditingCard] = useState<TaskCard | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [form, setForm] = useState({ title: "", description: "", artifact_link: "" });
+  const [form, setForm] = useState({ title: "", description: "", artifactLink: "" });
   const [saving, setSaving] = useState(false);
 
   // Модальное окно просмотра (чужие задачи)
@@ -123,7 +123,7 @@ export function TasksTab() {
     setLoading(true);
     const weekStr = format(currentWeekStart, "yyyy-MM-dd");
     api.taskCards
-      .list(COHORT_ID, weekStr)
+      .list({ cohortId: COHORT_ID, date: weekStr })
       .then(setCards)
       .catch(() => setCards([]))
       .finally(() => setLoading(false));
@@ -175,11 +175,11 @@ export function TasksTab() {
       setForm({
         title: existing.title,
         description: existing.description,
-        artifact_link: existing.artifact_link,
+        artifactLink: existing.artifactLink,
       });
     } else {
       setEditingCard(null);
-      setForm({ title: "", description: "", artifact_link: "" });
+      setForm({ title: "", description: "", artifactLink: "" });
     }
     setModalOpen(true);
   };
@@ -197,15 +197,14 @@ export function TasksTab() {
     setSaving(true);
 
     const optimisticCard: TaskCard = editingCard
-      ? { ...editingCard, ...form, updated_at: new Date().toISOString() }
+      ? { ...editingCard, ...form, updatedAt: new Date().toISOString() }
       : {
           id: "temp-" + Date.now(),
-          userId: selectedUserId,
-          cohortId: COHORT_ID,
+          applicationId: selectedUserId,
           date: selectedDate,
           ...form,
-          artifact_link: form.artifact_link || "",
-          updated_at: new Date().toISOString(),
+          artifactLink: form.artifactLink || "",
+          updatedAt: new Date().toISOString(),
         };
 
     setCards((prev) => {
@@ -216,11 +215,11 @@ export function TasksTab() {
 
     try {
       if (editingCard) {
-        const updated = await api.taskCards.update(editingCard.id, form);
+        const updated = await api.taskCards.update(editingCard.applicationId, editingCard.id, form);
         setCards((prev) => prev.map((c) => (c.id === optimisticCard.id ? updated : c)));
       } else {
-        const data: CreateTaskCardDto = { cohortId: COHORT_ID, date: selectedDate, ...form };
-        const created = await api.taskCards.create(data);
+        const data: CreateTaskCardDto = { applicationId: selectedUserId, date: selectedDate, ...form };
+        const created = await api.taskCards.create(selectedUserId, data);
         setCards((prev) => prev.map((c) => (c.id === optimisticCard.id ? created : c)));
       }
     } catch {
@@ -286,8 +285,8 @@ export function TasksTab() {
         <div>
           <label className="mb-1.5 block text-sm font-medium">Ссылка на артефакт</label>
           <Input
-            value={form.artifact_link}
-            onChange={(e) => setForm((f) => ({ ...f, artifact_link: e.target.value }))}
+            value={form.artifactLink}
+            onChange={(e) => setForm((f) => ({ ...f, artifactLink: e.target.value }))}
             placeholder="https://github.com/..."
           />
         </div>
@@ -470,12 +469,12 @@ export function TasksTab() {
                                     </p>
                                   )}
                                   <div className="flex items-center justify-between">
-                                    {card.artifact_link && (
+                                    {card.artifactLink && (
                                       <ExternalLink className="h-3 w-3 text-primary" />
                                     )}
                                     <span className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground">
                                       <Clock className="h-2.5 w-2.5" />
-                                      {formatUpdatedAt(card.updated_at)}
+                                      {formatUpdatedAt(card.updatedAt)}
                                     </span>
                                   </div>
                                 </div>
@@ -538,23 +537,23 @@ export function TasksTab() {
                   <p className="text-sm whitespace-pre-wrap">{viewingCard.description}</p>
                 </div>
               )}
-              {viewingCard.artifact_link && (
+              {viewingCard.artifactLink && (
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Артефакт</label>
                   <a
-                    href={viewingCard.artifact_link}
+                    href={viewingCard.artifactLink}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    {viewingCard.artifact_link}
+                    {viewingCard.artifactLink}
                   </a>
                 </div>
               )}
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-2 border-t">
                 <Clock className="h-3.5 w-3.5" />
-                Обновлено: {formatUpdatedAt(viewingCard.updated_at)}
+                Обновлено: {formatUpdatedAt(viewingCard.updatedAt)}
               </div>
             </div>
           )}

@@ -231,6 +231,68 @@ npm install -D @types/node @types/react
 
 ---
 
+## ЭТАП 11: Интеграция фронтенда с бэкендом 🔄
+
+### Контекст:
+Фронтенд был разработан с MSW моками. Теперь нужно подключить реальный бэкенд на `localhost:3001`. Создана документация для бэкенд-разработчика: `docs/BACKEND_REQUESTS.md`
+
+### Задачи — API клиент:
+- [x] Настроить BASE_URL = `http://localhost:3001`
+- [x] Убрать префикс `/api` из всех путей
+- [x] Добавить переключение между моками и реальным API
+
+### Задачи — Типы:
+- [x] Обновить `User`: `fio` опционально, добавить `activeCohortId`
+- [x] Обновить `TestTask`: `content` вместо `question`
+- [x] Обновить `TaskCard`: `applicationId`, `artifactLink`, `updatedAt`
+- [x] Обновить `Application`: добавить `roleId`, `cohort`, `role`
+- [x] Обновить `StudentDocumentData`: `applicationId` вместо `userId`
+
+### Задачи — Auth:
+- [x] Исправить пути: `/auth/login`, `/auth/register`, `/me`
+
+### Задачи — Cohorts:
+- [x] Исправить метод: `PATCH` вместо `PUT` для обновления
+
+### Задачи — Survey Fields:
+- [x] Добавить `cohortId` в URL: `/cohorts/:cohortId/fields`
+
+### Задачи — Applications:
+- [x] Объединить approve/reject в `reviewApplication`
+
+### Задачи — Test Tasks:
+- [x] Возвращать массив `TestTask[]`
+- [x] Исправить submit: `PUT /applications/:id/answers`
+
+### Задачи — Documents:
+- [x] Исправить пути: `/applications/:id/doc-data`
+- [x] Исправить методы: `PATCH` вместо `PUT`
+
+### Задачи — Task Cards:
+- [x] Исправить пути: `/applications/:id/tasks`
+- [x] Исправить методы: `PATCH` вместо `PUT`
+
+### Задачи — Компоненты:
+- [x] Исправить все TypeScript ошибки
+- [x] Обработать опциональное `fio` с fallback на email
+- [x] Обработать массивы `TestTask[]` (брать первый элемент)
+
+### Задачи — Документация:
+- [x] Создать `docs/BACKEND_REQUESTS.md` для бэкенд-разработчика
+
+### Задачи — Ожидание от бэкенда:
+- [ ] CORS middleware
+- [ ] `fio` в User response
+- [ ] `GET /admin/users/:id/profile`
+- [ ] `GET /cohort-participants`
+- [ ] `GET /applications?cohortIds=`
+- [ ] `GET /admin/applications?cohortIds=`
+- [ ] `GET /admin/documents?cohortIds=`
+
+**После выполнения:** Фронтенд готов работать с реальным бэкендом после добавления недостающих эндпоинтов
+
+---
+
 ## Легенда
 
 - ⬜ Не начато
@@ -238,4 +300,4 @@ npm install -D @types/node @types/react
 - ✅ Готово
 - ⏭ Пропущено
 
-**Статус:** ЭТАПЫ 1-9 готовы. Следующий: ЭТАП 10 (Финальная доработка)
+**Статус:** ЭТАПЫ 1-10 готовы. ЭТАП 11 (Интеграция) в работе — фронтенд адаптирован, ожидаем эндпоинты от бэкенда

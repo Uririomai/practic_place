@@ -121,7 +121,7 @@ export function ApplicationsTable({
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                 >
                   <td className="px-4 py-3">{app.cohort.name}</td>
-                  <td className="px-4 py-3 font-medium">{app.user.fio}</td>
+                  <td className="px-4 py-3 font-medium">{app.user.fio || app.user.email}</td>
                   <td className="px-4 py-3 text-muted-foreground">{app.user.email}</td>
                   <td className="px-4 py-3">
                     {new Date(app.createdAt).toLocaleDateString("ru-RU")}
@@ -131,7 +131,7 @@ export function ApplicationsTable({
                   <td className="px-4 py-3">
                     <InlineRoleSelect
                       applicationId={app.id}
-                      currentRoleId={app.roleName ? cohortRoles[app.cohortId]?.find(r => r.name === app.roleName)?.id : undefined}
+                      currentRoleId={app.role?.id}
                       roles={cohortRoles[app.cohortId] || []}
                       onChange={onRoleChange}
                     />

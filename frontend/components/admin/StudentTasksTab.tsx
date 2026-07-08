@@ -62,7 +62,7 @@ export function StudentTasksTab({ tasksByCohort, selectedCohortId }: StudentTask
                       {task.description || "—"}
                     </td>
                     <td className="px-4 py-2 text-center">
-                      {task.artifact_link ? (
+                      {task.artifactLink ? (
                         <ExternalLink className="h-4 w-4 text-primary" />
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -71,7 +71,7 @@ export function StudentTasksTab({ tasksByCohort, selectedCohortId }: StudentTask
                     <td className="px-4 py-2 text-right text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {format(parseISO(task.updated_at), "d MMM, HH:mm", { locale: ru })}
+                        {format(parseISO(task.updatedAt), "d MMM, HH:mm", { locale: ru })}
                       </span>
                     </td>
                   </tr>
@@ -107,17 +107,17 @@ export function StudentTasksTab({ tasksByCohort, selectedCohortId }: StudentTask
             )}
 
             {/* Артефакт */}
-            {viewingTask?.artifact_link && (
+            {viewingTask?.artifactLink && (
               <div>
                 <label className="text-sm font-medium">Артефакт</label>
                 <a
-                  href={viewingTask.artifact_link}
+                  href={viewingTask.artifactLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1 flex items-center gap-2 text-sm text-primary hover:underline"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  {viewingTask.artifact_link}
+                  {viewingTask.artifactLink}
                 </a>
               </div>
             )}
@@ -125,7 +125,7 @@ export function StudentTasksTab({ tasksByCohort, selectedCohortId }: StudentTask
             {/* Время обновления */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
               <Clock className="h-3 w-3" />
-              <span>Обновлено: {viewingTask ? format(parseISO(viewingTask.updated_at), "d MMMM, HH:mm", { locale: ru }) : ""}</span>
+              <span>Обновлено: {viewingTask ? format(parseISO(viewingTask.updatedAt), "d MMMM, HH:mm", { locale: ru }) : ""}</span>
             </div>
           </div>
         </DialogContent>

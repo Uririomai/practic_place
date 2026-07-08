@@ -19,8 +19,6 @@ import {
   SaveTestTaskDto,
   AdminApplication,
   AdminDocumentData,
-  ApproveApplicationDto,
-  RejectApplicationDto,
   CohortRole,
   SaveReviewDto,
   StudentProfile,
@@ -38,8 +36,11 @@ class ApiError extends Error {
 // Тип функции fetch — можно заменить на мок
 type FetchFn = typeof globalThis.fetch;
 
+// Базовый URL бэкенда
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 class ApiClient {
-  private baseURL = "";
+  private baseURL = BACKEND_URL;
   private token: string | null = null;
   private _fetchFn: FetchFn = globalThis.fetch.bind(globalThis);
 
@@ -61,8 +62,14 @@ class ApiClient {
     this._fetchFn = globalThis.fetch.bind(globalThis);
   }
 
+  /** Проверяет, используются ли моки */
+  get isUsingMocks(): boolean {
+    return this._fetchFn !== globalThis.fetch.bind(globalThis);
+  }
+
   async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
+    // Если используются моки, не добавляем baseURL
+    const url = this.isUsingMocks ? endpoint : `${this.baseURL}${endpoint}`;
     const headers = new Headers(options?.headers);
 
     if (this.token) {
@@ -92,110 +99,132 @@ export const apiClient = new ApiClient();
 export const api = {
   auth: {
     login: (data: { email: string; password: string }) =>
-      apiClient.request<{ token: string; user: User }>("/api/auth/login", {
+      apiClient.request<{ token: string; user: User }>("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
     register: (data: { email: string; password: string }) =>
-      apiClient.request<{ token: string; user: User }>("/api/auth/register", {
+      apiClient.request<{ token: string; user: User }>("/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-    me: () => apiClient.request<User>("/api/auth/me"),
+    me: () => apiClient.request<User>("/me"),
   },
 
   cohorts: {
-    list: () => apiClient.request<Cohort[]>("/api/cohorts"),
+    list: () => apiClient.request<Cohort[]>("/cohorts"),
     get: (cohortId: string) =>
-      apiClient.request<Cohort>(`/api/cohorts/${cohortId}`),
+      apiClient.request<Cohort>(`/cohorts/${cohortId}`),
   },
 
   survey: {
-    getFields: () =>
-      apiClient.request<SurveyField[]>("/api/survey/fields"),
+    getFields: (cohortId: string) =>
+      apiClient.request<SurveyField[]>(`/cohorts/${cohortId}/fields`),
   },
 
   applications: {
     submit: (data: { cohortId: string; surveyData: Record<string, string> }) =>
-      apiClient.request<Application>("/api/applications", {
+      apiClient.request<Application>("/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-    getMy: () => apiClient.request<ApplicationWithTest[]>("/api/applications/my"),
+    getMy: () => apiClient.request<ApplicationWithTest[]>("/applications"),
+    getAnswers: (applicationId: string) =>
+      apiClient.request<{ fieldId: string; value: string }[]>(`/applications/${applicationId}/answers`),
+    saveAnswers: (applicationId: string, answers: { fieldId: string; value: string }[]) =>
+      apiClient.request<{ fieldId: string; value: string }[]>(`/applications/${applicationId}/answers`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      }),
   },
 
   testTask: {
     get: (cohortId: string) =>
-      apiClient.request<TestTask>(`/api/test-task?cohortId=${cohortId}`),
-    getMy: (cohortId: string) =>
-      apiClient.request<UserTestTask>(`/api/test-task/my?cohortId=${cohortId}`),
-    submit: (data: { cohortId: string; answer: string }) =>
-      apiClient.request<{ status: string }>("/api/test-task/submit", {
+      apiClient.request<TestTask[]>(`/cohorts/${cohortId}/test-tasks`),
+    getMy: (applicationId: string) =>
+      apiClient.request<UserTestTask>(`/applications/${applicationId}/answers`),
+    submit: (applicationId: string, answers: { fieldId: string; value: string }[]) =>
+      apiClient.request<{ status: string }>(`/applications/${applicationId}/answers`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      }),
+    submitAnswer: (cohortId: string, answer: string) =>
+      apiClient.request<{ status: string }>(`/cohorts/${cohortId}/test-tasks/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ answer }),
       }),
   },
 
   studentDocument: {
-    get: (cohortId: string) =>
-      apiClient.request<StudentDocumentData>(`/api/student-document?cohortId=${cohortId}`),
-    save: (data: UpdateStudentDocumentDto) =>
-      apiClient.request<StudentDocumentData>("/api/student-document", {
-        method: "PUT",
+    get: (applicationId: string) =>
+      apiClient.request<StudentDocumentData>(`/applications/${applicationId}/doc-data`),
+    save: (applicationId: string, data: UpdateStudentDocumentDto) =>
+      apiClient.request<StudentDocumentData>(`/applications/${applicationId}/doc-data`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
   },
 
   taskCards: {
-    list: (cohortId: string, week: string) =>
-      apiClient.request<TaskCard[]>(`/api/task-cards?cohortId=${cohortId}&week=${week}`),
-    create: (data: CreateTaskCardDto) =>
-      apiClient.request<TaskCard>("/api/task-cards", {
+    list: (params: { cohortId?: string; date?: string }) =>
+      apiClient.request<TaskCard[]>(`/tasks?${params.cohortId ? `cohortId=${params.cohortId}&` : ""}${params.date ? `date=${params.date}&` : ""}`.replace(/&$/, "")),
+    listByApplication: (applicationId: string) =>
+      apiClient.request<TaskCard[]>(`/applications/${applicationId}/tasks`),
+    create: (applicationId: string, data: CreateTaskCardDto) =>
+      apiClient.request<TaskCard>(`/applications/${applicationId}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-    update: (id: string, data: UpdateTaskCardDto) =>
-      apiClient.request<TaskCard>(`/api/task-cards/${id}`, {
-        method: "PUT",
+    update: (applicationId: string, taskId: string, data: UpdateTaskCardDto) =>
+      apiClient.request<TaskCard>(`/applications/${applicationId}/tasks/${taskId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+      }),
+    delete: (applicationId: string, taskId: string) =>
+      apiClient.request<void>(`/applications/${applicationId}/tasks/${taskId}`, {
+        method: "DELETE",
       }),
   },
 
   cohortParticipants: {
     list: (cohortId: string) =>
-      apiClient.request<CohortParticipant[]>(`/api/cohort-participants?cohortId=${cohortId}`),
+      apiClient.request<CohortParticipant[]>(`/cohort-participants?cohortId=${cohortId}`),
   },
 
   // ===== Admin API =====
   admin: {
     // Когорты
     createCohort: (data: CreateCohortDto) =>
-      apiClient.request<Cohort>("/api/cohorts", {
+      apiClient.request<Cohort>("/cohorts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
     updateCohort: (id: string, data: UpdateCohortDto) =>
-      apiClient.request<Cohort>(`/api/cohorts/${id}`, {
-        method: "PUT",
+      apiClient.request<Cohort>(`/cohorts/${id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
     deleteCohort: (id: string) =>
-      apiClient.request<void>(`/api/cohorts/${id}`, {
+      apiClient.request<void>(`/cohorts/${id}`, {
         method: "DELETE",
       }),
 
     // Поля анкеты когорты
+    getSurveyFields: (cohortId: string) =>
+      apiClient.request<SurveyField[]>(`/cohorts/${cohortId}/fields`),
     saveSurveyFields: (cohortId: string, data: SaveSurveyFieldsDto) =>
-      apiClient.request<SurveyField[]>(`/api/cohorts/${cohortId}/survey-fields`, {
+      apiClient.request<SurveyField[]>(`/cohorts/${cohortId}/fields`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -203,9 +232,9 @@ export const api = {
 
     // Роли когорты
     getRoles: (cohortId: string) =>
-      apiClient.request<CohortRole[]>(`/api/cohorts/${cohortId}/roles`),
+      apiClient.request<CohortRole[]>(`/cohorts/${cohortId}/roles`),
     saveRoles: (cohortId: string, data: SaveCohortRolesDto) =>
-      apiClient.request<CohortRole[]>(`/api/cohorts/${cohortId}/roles`, {
+      apiClient.request<CohortRole[]>(`/cohorts/${cohortId}/roles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -213,63 +242,59 @@ export const api = {
 
     // Тестовое задание когорты
     getTestTask: (cohortId: string) =>
-      apiClient.request<TestTask>(`/api/cohorts/${cohortId}/test-task`),
+      apiClient.request<TestTask[]>(`/cohorts/${cohortId}/test-tasks`),
     saveTestTask: (cohortId: string, data: SaveTestTaskDto) =>
-      apiClient.request<TestTask>(`/api/cohorts/${cohortId}/test-task`, {
+      apiClient.request<TestTask>(`/cohorts/${cohortId}/test-tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
 
-    // Заявки когорты
+  // Эндпоинт для моков - использует question как legacy-поле
+  saveTestTaskLegacy: (cohortId: string, question: string) =>
+      apiClient.request<TestTask>(`/cohorts/${cohortId}/test-tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      }),
+
+    // Заявки
     getApplications: (cohortIds?: string[]) => {
       const params = cohortIds?.length ? `?cohortIds=${cohortIds.join(",")}` : "";
-      return apiClient.request<AdminApplication[]>(`/api/admin/applications${params}`);
+      return apiClient.request<AdminApplication[]>(`/applications${params}`);
     },
-    approveApplication: (id: string, data: ApproveApplicationDto) =>
-      apiClient.request<AdminApplication>(`/api/admin/applications/${id}/approve`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    rejectApplication: (id: string, data: RejectApplicationDto) =>
-      apiClient.request<AdminApplication>(`/api/admin/applications/${id}/reject`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    updateApplicationRole: (id: string, roleId: string) =>
-      apiClient.request<AdminApplication>(`/api/admin/applications/${id}/role`, {
+    reviewApplication: (id: string, data: { status: "APPROVED" | "REJECTED"; roleId?: string; reviewComment?: string }) =>
+      apiClient.request<AdminApplication>(`/applications/${id}/review`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roleId }),
+        body: JSON.stringify(data),
       }),
 
-    // Документы когорты
+    // Документы
     getDocuments: (cohortIds?: string[]) => {
       const params = cohortIds?.length ? `?cohortIds=${cohortIds.join(",")}` : "";
-      return apiClient.request<AdminDocumentData[]>(`/api/admin/documents${params}`);
+      return apiClient.request<AdminDocumentData[]>(`/applications${params}`);
     },
-    saveReview: (documentId: string, data: SaveReviewDto) =>
-      apiClient.request<AdminDocumentData>(`/api/admin/student-document/review`, {
-        method: "POST",
+    saveReview: (applicationId: string, data: SaveReviewDto) =>
+      apiClient.request<AdminDocumentData>(`/applications/${applicationId}/doc-data`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId, ...data }),
+        body: JSON.stringify(data),
       }),
 
     // Отчёт
-    approveReport: (documentId: string) =>
-      apiClient.request<AdminDocumentData>(`/api/admin/student-document/${documentId}/report/approve`, {
-        method: "PUT",
+    approveReport: (applicationId: string) =>
+      apiClient.request<AdminDocumentData>(`/applications/${applicationId}/report/approve`, {
+        method: "POST",
       }),
-    rejectReport: (documentId: string) =>
-      apiClient.request<AdminDocumentData>(`/api/admin/student-document/${documentId}/report/reject`, {
-        method: "PUT",
+    rejectReport: (applicationId: string) =>
+      apiClient.request<AdminDocumentData>(`/applications/${applicationId}/report/reject`, {
+        method: "POST",
       }),
 
-    // Профиль студента
+    // Профиль студента (пока мок, ждём эндпоинт от бэка)
     getUserProfile: (userId: string) =>
-      apiClient.request<StudentProfile>(`/api/admin/users/${userId}/profile`),
+      apiClient.request<StudentProfile>(`/admin/users/${userId}/profile`),
   },
 };
 

@@ -22,9 +22,9 @@ import {
   Users,
 } from "lucide-react";
 
-function getInitials(fio: string): string {
-  if (!fio) return "?";
-  const parts = fio.trim().split(/\s+/);
+function getInitials(fio?: string): string {
+  const name = fio || "?";
+  const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }

@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { Cohort, ApplicationWithTest, SurveyField } from "@/shared/api/types";
+
+const COHORT_ID = "test-cohort-id";
 import { SurveyForm } from "@/components/applications/SurveyForm";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -97,7 +99,7 @@ export function ApplicationsTab() {
     Promise.all([
       api.cohorts.list().catch(() => []),
       api.applications.getMy().catch(() => []),
-      api.survey.getFields().catch(() => []),
+      api.survey.getFields(COHORT_ID).catch(() => []),
     ])
       .then(([cohortsRes, appsRes, fieldsRes]) => {
         setCohorts(cohortsRes);

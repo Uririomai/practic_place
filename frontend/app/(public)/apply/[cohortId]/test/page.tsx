@@ -17,11 +17,11 @@ export default function TestPage() {
 
   useEffect(() => {
     Promise.all([
-      api.testTask.get(cohortId).catch(() => null),
+      api.testTask.get(cohortId).catch(() => []),
       api.testTask.getMy(cohortId).catch(() => null),
     ])
-      .then(([task, userTask]) => {
-        setTestTask(task);
+      .then(([tasks, userTask]) => {
+        setTestTask(tasks[0] || null);
         setUserTestTask(userTask);
       })
       .catch((err) => setError(err.message))

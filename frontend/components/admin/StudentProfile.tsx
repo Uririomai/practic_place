@@ -70,15 +70,16 @@ export function StudentProfile({ userId }: StudentProfileProps) {
     : profile.applications.filter(a => a.cohortId === selectedCohortId);
   const filteredDocs = selectedCohortId === "all"
     ? profile.documents
-    : profile.documents.filter(d => d.cohortId === selectedCohortId);
+    : profile.documents.filter(d => d.cohort?.id === selectedCohortId);
   const filteredTasks = selectedCohortId === "all"
     ? profile.tasks
     : profile.tasks.filter(t => t.cohortId === selectedCohortId);
 
   // Группировка задач по когортам
   const tasksByCohort = profile.tasks.reduce((acc, task) => {
-    if (!acc[task.cohortId]) acc[task.cohortId] = [];
-    acc[task.cohortId].push(task);
+    const cohortId = task.cohortId || "unknown";
+    if (!acc[cohortId]) acc[cohortId] = [];
+    acc[cohortId].push(task);
     return acc;
   }, {} as Record<string, typeof profile.tasks>);
 
@@ -93,10 +94,10 @@ export function StudentProfile({ userId }: StudentProfileProps) {
       {/* Шапка профиля */}
       <div className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-medium text-primary">
-          {profile.user.fio.split(" ").map(n => n[0]).join("").slice(0, 2)}
+          {(profile.user.fio || profile.user.email).split(" ").map(n => n[0]).join("").slice(0, 2)}
         </div>
         <div>
-          <h1 className="text-2xl font-bold">{profile.user.fio}</h1>
+          <h1 className="text-2xl font-bold">{profile.user.fio || profile.user.email}</h1>
           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <Mail className="h-4 w-4" />

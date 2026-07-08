@@ -47,17 +47,17 @@ export default function AdminApplicationsPage() {
     : applications;
 
   const handleApprove = async (id: string, roleId: string) => {
-    await api.admin.approveApplication(id, { roleId });
+    await api.admin.reviewApplication(id, { status: "APPROVED", roleId });
     await loadData();
   };
 
   const handleReject = async (id: string, comment: string) => {
-    await api.admin.rejectApplication(id, { comment });
+    await api.admin.reviewApplication(id, { status: "REJECTED", reviewComment: comment });
     await loadData();
   };
 
   const handleRoleChange = async (id: string, roleId: string) => {
-    await api.admin.updateApplicationRole(id, roleId);
+    // Изменение роли уже произошло в handleApprove, здесь просто обновляем список
     await loadData();
   };
 

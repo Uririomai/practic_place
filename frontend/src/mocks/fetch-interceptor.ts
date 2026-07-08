@@ -163,24 +163,24 @@ const routePatterns: Array<{
   // ===== Cohort Test Task =====
   {
     method: "GET",
-    pattern: /^\/api\/cohorts\/([^/]+)\/test-task$/,
+    pattern: /^\/api\/cohorts\/([^/]+)\/test-tasks$/,
     handler: (match) => {
       const cohortId = match[1];
       const task = mockTestTask.cohortId === cohortId ? mockTestTask : null;
-      if (task) return Response.json(task);
-      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+      if (task) return Response.json([task]);
+      return Response.json([]);
     },
   },
   {
     method: "POST",
-    pattern: /^\/api\/cohorts\/([^/]+)\/test-task$/,
+    pattern: /^\/api\/cohorts\/([^/]+)\/test-tasks$/,
     handler: async (match, request) => {
       const cohortId = match[1];
-      const body = (await request.json()) as { question: string };
+      const body = (await request.json()) as { content: string };
       return Response.json({
         id: "test-task-" + cohortId,
         cohortId,
-        question: body.question,
+        content: body.content,
         publishedAt: new Date().toISOString(),
       });
     },
@@ -202,54 +202,19 @@ const routePatterns: Array<{
     },
   },
   {
-    method: "PUT",
-    pattern: /^\/api\/admin\/applications\/([^/]+)\/approve$/,
-    handler: async (match, request) => {
-      const id = match[1];
-      const body = (await request.json()) as { roleId: string };
-      const index = adminApplications.findIndex((a) => a.id === id);
-      if (index !== -1) {
-        const role = cohortRoles.find((r) => r.id === body.roleId);
-        adminApplications[index] = {
-          ...adminApplications[index],
-          status: "approved",
-          roleName: role?.name,
-        };
-        return Response.json(adminApplications[index]);
-      }
-      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
-    },
-  },
-  {
-    method: "PUT",
-    pattern: /^\/api\/admin\/applications\/([^/]+)\/reject$/,
-    handler: async (match, request) => {
-      const id = match[1];
-      const body = (await request.json()) as { comment: string };
-      const index = adminApplications.findIndex((a) => a.id === id);
-      if (index !== -1) {
-        adminApplications[index] = {
-          ...adminApplications[index],
-          status: "rejected",
-          reviewComment: body.comment,
-        };
-        return Response.json(adminApplications[index]);
-      }
-      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
-    },
-  },
-  {
     method: "PATCH",
-    pattern: /^\/api\/admin\/applications\/([^/]+)\/role$/,
+    pattern: /^\/api\/applications\/([^/]+)\/review$/,
     handler: async (match, request) => {
       const id = match[1];
-      const body = (await request.json()) as { roleId: string };
+      const body = (await request.json()) as { status: "APPROVED" | "REJECTED"; roleId?: string; reviewComment?: string };
       const index = adminApplications.findIndex((a) => a.id === id);
       if (index !== -1) {
-        const role = cohortRoles.find((r) => r.id === body.roleId);
+        const role = body.roleId ? cohortRoles.find((r) => r.id === body.roleId) : undefined;
         adminApplications[index] = {
           ...adminApplications[index],
-          roleName: role?.name,
+          status: body.status === "APPROVED" ? "approved" : "rejected",
+          role: role,
+          reviewComment: body.reviewComment,
         };
         return Response.json(adminApplications[index]);
       }
@@ -402,20 +367,20 @@ const routePatterns: Array<{
   },
   {
     method: "GET",
-    pattern: /^\/api\/task-cards$/,
+    pattern: /^\/api\/tasks/,
     handler: (_match, request) => {
       const url = new URL(request.url);
       const cohortId = url.searchParams.get("cohortId");
-      const week = url.searchParams.get("week");
+      const date = url.searchParams.get("date");
       if (cohortId === "test-cohort-id") {
-        if (week) {
-          const weekStart = new Date(week);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 7);
+        if (date) {
+          const dateStart = new Date(date);
+          const dateEnd = new Date(dateStart);
+          dateEnd.setDate(dateEnd.getDate() + 7);
           return Response.json(
             mockTaskCards.filter((c) => {
               const d = new Date(c.date);
-              return d >= weekStart && d < weekEnd;
+              return d >= dateStart && d < dateEnd;
             })
           );
         }
@@ -428,13 +393,12 @@ const routePatterns: Array<{
     method: "POST",
     pattern: /^\/api\/task-cards$/,
     handler: async (_match, request) => {
-      const body = await request.json() as { cohortId: string; date: string; title: string; description: string; artifact_link?: string };
+      const body = await request.json() as { applicationId: string; date: string; title: string; description: string; artifactLink?: string };
       return Response.json({
         id: "task-" + Date.now(),
-        userId: "user-1",
         ...body,
-        artifact_link: body.artifact_link || "",
-        updated_at: new Date().toISOString(),
+        artifactLink: body.artifactLink || "",
+        updatedAt: new Date().toISOString(),
       });
     },
   },
@@ -446,7 +410,7 @@ const routePatterns: Array<{
       const body = await request.json() as Record<string, unknown>;
       const existing = mockTaskCards.find((c) => c.id === id);
       if (existing) {
-        return Response.json({ ...existing, ...body, updated_at: new Date().toISOString() });
+        return Response.json({ ...existing, ...body, updatedAt: new Date().toISOString() });
       }
       return new Response(JSON.stringify({ message: "Not found" }), {
         status: 404,

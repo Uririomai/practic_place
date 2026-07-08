@@ -139,7 +139,7 @@ export function ApplicationReviewModal({
           {activeTab === "survey" && (
             <>
               <div className="rounded-lg border p-4 space-y-2 bg-muted/30">
-                {Object.entries(application.surveyData).map(([key, value]) => (
+                {Object.entries(application.surveyData || {}).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{fieldLabels[key] || key}:</span>
                     <span>{value || "—"}</span>

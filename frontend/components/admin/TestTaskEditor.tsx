@@ -12,7 +12,7 @@ interface TestTaskEditorProps {
 }
 
 export function TestTaskEditor({ testTask, onSave, onCancel }: TestTaskEditorProps) {
-  const [question, setQuestion] = useState(testTask?.question || "");
+  const [question, setQuestion] = useState(testTask?.content || "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {

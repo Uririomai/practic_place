@@ -38,7 +38,7 @@ export function ProfileTab() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
-    api.survey.getFields().then(setFields).catch(() => {});
+    api.survey.getFields(COHORT_ID).then(setFields).catch(() => {});
   }, []);
 
   const showToast = (type: "success" | "error", message: string) => {

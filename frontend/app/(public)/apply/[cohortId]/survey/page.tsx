@@ -15,11 +15,11 @@ export default function SurveyPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.survey.getFields()
+    api.survey.getFields(cohortId)
       .then(setFields)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [cohortId]);
 
   return (
     <div className="min-h-screen bg-background">

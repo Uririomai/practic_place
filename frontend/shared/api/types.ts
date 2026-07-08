@@ -18,8 +18,9 @@ export interface AuthResponse {
 export interface User {
   id: string;
   email: string;
-  fio: string;
+  fio?: string; // Опционально: бэкенд может не возвращать
   role: "student" | "admin";
+  activeCohortId?: string;
   createdAt: string;
 }
 
@@ -48,16 +49,19 @@ export interface Application {
   id: string;
   userId: string;
   cohortId: string;
+  roleId?: string;
   status: ApplicationStatus;
-  surveyData: Record<string, string>;
   reviewComment?: string;
   createdAt: string;
+  cohort?: Pick<Cohort, 'id' | 'name'>;
+  role?: Pick<CohortRole, 'id' | 'name'>;
 }
 
 // Заявка со статусом тестового задания
 export interface ApplicationWithTest extends Application {
   testStatus: TestTaskStatus;
   testAnswer?: string;
+  surveyData?: Record<string, string>;
 }
 
 export interface CohortRole {
@@ -71,7 +75,7 @@ export type TestTaskStatus = 'not_submitted' | 'pending' | 'approved' | 'rejecte
 export interface TestTask {
   id: string;
   cohortId: string;
-  question: string;
+  content: string;
   publishedAt?: string;
 }
 
@@ -84,7 +88,7 @@ export interface UserTestTask {
 
 export interface StudentDocumentData {
   id: string;
-  userId: string;
+  applicationId: string;
   cohortId: string;
   student_fio: string;
   group: string;
@@ -107,31 +111,31 @@ export interface StudentDocumentData {
 
 export interface TaskCard {
   id: string;
-  userId: string;
-  cohortId: string;
+  applicationId: string;
+  cohortId?: string; // Для фильтрации в StudentProfile
+  userId?: string; // Для совместимости с UI
   date: string;
   title: string;
   description: string;
-  artifact_link: string;
-  updated_at: string;
+  artifactLink: string;
+  updatedAt: string;
 }
 
 export interface CreateTaskCardDto {
-  cohortId: string;
+  applicationId: string;
   date: string;
   title: string;
   description: string;
-  artifact_link?: string;
+  artifactLink?: string;
 }
 
 export interface UpdateTaskCardDto {
   title?: string;
   description?: string;
-  artifact_link?: string;
+  artifactLink?: string;
 }
 
 export interface UpdateStudentDocumentDto {
-  cohortId: string;
   student_fio?: string;
   group?: string;
   direction_code?: string;
@@ -177,27 +181,21 @@ export interface SaveCohortRolesDto {
 }
 
 export interface SaveTestTaskDto {
-  question: string;
+  content: string;
 }
 
 // Заявка с информацией о пользователе (для админки)
 export interface AdminApplication extends ApplicationWithTest {
   user: Pick<User, 'id' | 'email' | 'fio'>;
   cohort: Pick<Cohort, 'id' | 'name'>;
-  roleName?: string;
+  role?: CohortRole;
+  surveyData?: Record<string, string>;
 }
 
 export interface AdminDocumentData extends StudentDocumentData {
   user: Pick<User, 'id' | 'email' | 'fio'>;
   cohort: Pick<Cohort, 'id' | 'name'>;
-}
-
-export interface ApproveApplicationDto {
-  roleId: string;
-}
-
-export interface RejectApplicationDto {
-  comment: string;
+  role?: CohortRole;
 }
 
 export interface SaveReviewDto {
