@@ -1,0 +1,514 @@
+import { Router } from "express";
+
+import { prisma } from "../../lib/prisma.js";
+import { AppError } from "../../lib/errors.js";
+
+const router = Router();
+
+
+/**
+ * @openapi
+ * /applications:
+ *   post:
+ *     tags:
+ *       - Applications
+ *     summary: Create application
+ *     description: Creates application for a cohort. One application per user per cohort.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cohortId
+ *             properties:
+ *               cohortId:
+ *                 type: string
+ *               roleId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Application created
+ *       400:
+ *         description: Application already exists
+ *       404:
+ *         description: Cohort not found
+ */
+router.post("/", async (req, res, next) => {
+  try {
+    const userId = req.user?.sub;
+
+    if (!userId) {
+      throw new AppError("UNAUTHORIZED", 401, "Unauthorized");
+    }
+
+    const { cohortId, roleId } = req.body;
+
+    const cohort = await prisma.cohort.findUnique({
+      where: {
+        id: cohortId,
+      },
+    });
+
+    if (!cohort) {
+      throw new AppError(
+        "COHORT_NOT_FOUND",
+        404,
+        "Cohort not found",
+      );
+    }
+
+    const existing = await prisma.application.findUnique({
+      where: {
+        userId_cohortId: {
+          userId,
+          cohortId,
+        },
+      },
+    });
+
+    if (existing) {
+      throw new AppError(
+        "APPLICATION_EXISTS",
+        400,
+        "Application already exists",
+      );
+    }
+
+    if (roleId) {
+      const role = await prisma.cohortRole.findFirst({
+        where: {
+          id: roleId,
+          cohortId,
+        },
+      });
+
+      if (!role) {
+        throw new AppError(
+          "ROLE_NOT_FOUND",
+          404,
+          "Role not found",
+        );
+      }
+    }
+
+    const application = await prisma.application.create({
+      data: {
+        userId,
+        cohortId,
+        roleId,
+      },
+    });
+
+    res.status(201).json(application);
+  } catch (e) {
+    next(e);
+  }
+});
+
+
+/**
+ * @openapi
+ * /applications:
+ *   get:
+ *     tags:
+ *       - Applications
+ *     summary: Get applications
+ *     description: Students see own applications. Admin sees applications from active cohort.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Applications list
+ */
+router.get("/", async (req, res, next) => {
+  try {
+    const userId = req.user?.sub;
+
+    if (!userId) {
+      throw new AppError("UNAUTHORIZED", 401, "Unauthorized");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        role: true,
+        activeCohortId: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError(
+        "USER_NOT_FOUND",
+        404,
+        "User not found",
+      );
+    }
+
+    let where;
+
+    if (user.role === "ADMIN") {
+      if (!user.activeCohortId) {
+        throw new AppError(
+          "ACTIVE_COHORT_NOT_SET",
+          400,
+          "Admin active cohort is not set",
+        );
+      }
+
+      where = {
+        cohortId: user.activeCohortId,
+      };
+    } else {
+      where = {
+        userId,
+      };
+    }
+
+    const applications = await prisma.application.findMany({
+      where,
+      include: {
+        cohort: true,
+        role: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.json(applications);
+  } catch (e) {
+    next(e);
+  }
+});
+
+
+/**
+ * @openapi
+ * /applications/{id}:
+ *   get:
+ *     tags:
+ *       - Applications
+ *     summary: Get application details
+ *     description: Returns application details. Accessible by owner or admin.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Application details
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Application not found
+ */
+router.get("/:id", async (req, res, next) => {
+  try {
+    const userId = req.user!.sub;
+    const applicationId = req.params.id as string;
+
+    const application = await prisma.application.findUnique({
+      where: {
+        id: applicationId,
+      },
+      include: {
+        cohort: true,
+        role: true,
+        answers: {
+          include: {
+            field: true,
+          },
+        },
+        files: true,
+        docData: true,
+        taskCards: true,
+      },
+    });
+
+    if (!application) {
+      throw new AppError(
+        "APPLICATION_NOT_FOUND",
+        404,
+        "Application not found",
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError(
+        "USER_NOT_FOUND",
+        404,
+        "User not found",
+      );
+    }
+
+    if (
+      user.role !== "ADMIN" &&
+      application.userId !== userId
+    ) {
+      throw new AppError(
+        "FORBIDDEN",
+        403,
+        "You cannot access this application",
+      );
+    }
+
+    res.json(application);
+  } catch (e) {
+    next(e);
+  }
+});
+
+
+/**
+ * @openapi
+ * /applications/{id}/review:
+ *   patch:
+ *     tags:
+ *       - Applications
+ *     summary: Review application
+ *     description: Approves or rejects application. Reject requires reviewComment.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum:
+ *                   - APPROVED
+ *                   - REJECTED
+ *               reviewComment:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Application reviewed
+ *       400:
+ *         description: Invalid review data
+ *       404:
+ *         description: Application not found
+ */
+router.patch("/:id/review", async (req, res, next) => {
+  try {
+    const applicationId = req.params.id as string;
+
+    const {
+      status,
+      reviewComment,
+    } = req.body as {
+      status?: "APPROVED" | "REJECTED";
+      reviewComment?: string;
+    };
+
+    if (
+      status !== "APPROVED" &&
+      status !== "REJECTED"
+    ) {
+      throw new AppError(
+        "INVALID_STATUS",
+        400,
+        "Status must be APPROVED or REJECTED",
+      );
+    }
+
+    if (
+      status === "REJECTED" &&
+      !reviewComment
+    ) {
+      throw new AppError(
+        "COMMENT_REQUIRED",
+        400,
+        "Review comment is required for rejection",
+      );
+    }
+
+    const application = await prisma.application.findUnique({
+      where: {
+        id: applicationId,
+      },
+    });
+
+    if (!application) {
+      throw new AppError(
+        "APPLICATION_NOT_FOUND",
+        404,
+        "Application not found",
+      );
+    }
+
+    const updated = await prisma.application.update({
+      where: {
+        id: applicationId,
+      },
+      data: {
+        status,
+        reviewComment: reviewComment ?? null,
+      },
+    });
+
+    res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+});
+
+
+/**
+ * @openapi
+ * /applications/{id}/answers:
+ *   put:
+ *     tags:
+ *       - Applications
+ *     summary: Save application answers
+ *     description: Replaces application survey answers.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               answers:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - fieldId
+ *                     - value
+ *                   properties:
+ *                     fieldId:
+ *                       type: string
+ *                     value:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: Answers saved
+ *       403:
+ *         description: Not application owner
+ *       404:
+ *         description: Application not found
+ */
+router.put("/:id/answers", async (req, res, next) => {
+  try {
+    const userId = req.user!.sub;
+    const applicationId = req.params.id as string;
+
+    const {
+      answers,
+    } = req.body as {
+      answers?: {
+        fieldId: string;
+        value: string;
+      }[];
+    };
+
+    if (!Array.isArray(answers)) {
+      throw new AppError(
+        "INVALID_ANSWERS",
+        400,
+        "Answers must be an array",
+      );
+    }
+
+    const application = await prisma.application.findUnique({
+      where: {
+        id: applicationId,
+      },
+    });
+
+    if (!application) {
+      throw new AppError(
+        "APPLICATION_NOT_FOUND",
+        404,
+        "Application not found",
+      );
+    }
+
+    if (application.userId !== userId) {
+      throw new AppError(
+        "FORBIDDEN",
+        403,
+        "You cannot edit this application",
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.applicationAnswer.deleteMany({
+        where: {
+          applicationId,
+        },
+      });
+
+      await tx.applicationAnswer.createMany({
+        data: answers.map((answer) => ({
+          applicationId,
+          fieldId: answer.fieldId,
+          value: answer.value,
+        })),
+      });
+    });
+
+    const updated = await prisma.application.findUnique({
+      where: {
+        id: applicationId,
+      },
+      include: {
+        answers: {
+          include: {
+            field: true,
+          },
+        },
+      },
+    });
+
+    res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+});
+
+export default router
