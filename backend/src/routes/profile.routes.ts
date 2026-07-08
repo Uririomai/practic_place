@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { AppError } from "../lib/errors.js";
 
 const router = Router();
 
@@ -10,13 +11,14 @@ router.use(authMiddleware);
  * @openapi
  * /me:
  *   get:
- *     tags: [Profile]
+ *     tags:
+ *       - Profile
  *     summary: Get current user profile
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Profile
+ *         description: UserProfile
  *         content:
  *           application/json:
  *             schema:
@@ -26,68 +28,157 @@ router.use(authMiddleware);
  */
 router.get("/", async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.sub },
-    });
-    if (!user) return res.status(404).json({ error: "user not found" });
+    const userId = req.user?.sub;
 
-    res.json({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      activeCohortId: user.activeCohortId,
-      createdAt: user.createdAt,
+    if (!userId) {
+      throw new AppError(
+        "UNAUTHORIZED",
+        401,
+        "Unauthorized",
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+
+        activeCohortId: true,
+        activeCohort: {
+          select: {
+            id: true,
+            name: true,
+            practiceStart: true,
+            practiceEnd: true,
+          },
+        },
+      },
     });
+
+    if (!user) {
+      throw new AppError(
+        "USER_NOT_FOUND",
+        404,
+        "User not found",
+      );
+    }
+
+    res.json(user);
   } catch (e) {
     next(e);
   }
 });
 
+
 /**
  * @openapi
  * /me:
  *   patch:
- *     tags: [Profile]
- *     summary: Update current user profile (set activeCohortId)
+ *     tags:
+ *       - Profile
+ *     summary: Change active cohort
+ *     description: Changes admin working cohort context.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - activeCohortId
  *             properties:
  *               activeCohortId:
  *                 type: string
- *                 nullable: true
  *     responses:
  *       200:
  *         description: Updated profile
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/User'
+ *       403:
+ *         description: Only admin can change context
+ *       404:
+ *         description: Cohort not found
  */
 router.patch("/", async (req, res, next) => {
   try {
+    const userId = req.user?.sub;
+
+    if (!userId) {
+      throw new AppError(
+        "UNAUTHORIZED",
+        401,
+        "Unauthorized",
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError(
+        "USER_NOT_FOUND",
+        404,
+        "User not found",
+      );
+    }
+
+    if (user.role !== "ADMIN") {
+      throw new AppError(
+        "FORBIDDEN",
+        403,
+        "Only admins can change active cohort",
+      );
+    }
+
     const { activeCohortId } = req.body;
-    const data: Record<string, unknown> = {};
 
-    if (activeCohortId !== undefined) data.activeCohortId = activeCohortId;
+    const cohort = await prisma.cohort.findUnique({
+      where: {
+        id: activeCohortId,
+      },
+    });
 
-    const user = await prisma.user.update({
-      where: { id: req.user!.sub },
-      data,
+    if (!cohort) {
+      throw new AppError(
+        "COHORT_NOT_FOUND",
+        404,
+        "Cohort not found",
+      );
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        activeCohortId,
+      },
       select: {
         id: true,
         email: true,
         role: true,
         activeCohortId: true,
-        createdAt: true,
+        activeCohort: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
-    res.json(user);
+    res.json(updatedUser);
   } catch (e) {
     next(e);
   }

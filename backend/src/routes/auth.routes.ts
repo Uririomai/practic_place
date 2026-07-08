@@ -58,7 +58,7 @@ router.post("/register", async (req, res, next) => {
 
     res.json({
       user: { id: user.id, email: user.email },
-      token: signToken({ sub: user.id, email: user.email }),
+      token: signToken({ sub: user.id, email: user.email, role: user.role }),
     });
   } catch (e) {
     next(e);
@@ -102,22 +102,22 @@ router.post("/login", async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
-      return res.status(400).json({ error: "email and password required" });
+      throw new AppError("EMAIL_OR_PASSWORD_NOT_SPECIFIED", 400, "email and password are required")
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.bcryptPassword) {
-      return res.status(401).json({ error: "invalid credentials" });
+      throw new AppError("INVALID_CREDENTIALS", 401, "Email or password is incorrect")
     }
 
     const ok = await bcrypt.compare(password, user.bcryptPassword);
     if (!ok) {
-      return res.status(401).json({ error: "invalid credentials" });
+      throw new AppError("INVALID_CREDENTIALS", 401, "Email or password is incorrect")
     }
 
     res.json({
       user: { id: user.id, email: user.email },
-      token: signToken({ sub: user.id, email: user.email }),
+      token: signToken({ sub: user.id, email: user.email, role: user.role }),
     });
   } catch (e) {
     next(e);

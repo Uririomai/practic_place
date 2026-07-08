@@ -12,6 +12,22 @@ enum UserRole {
   ADMIN
 }
 
+enum FileType {
+  REPORT
+}
+
+enum FileStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SurveyFieldType {
+  TEXT
+  TEXTAREA
+  SELECT
+}
+
 model User {
   id             String   @id @default(cuid())
   email          String   @unique
@@ -41,6 +57,7 @@ model Cohort {
   surveyFields SurveyField[]
   testTasks    TestTask[]
   adminContext User[]        @relation("ActiveCohort")
+  documentTemplates DocumentTemplate[]
 }
 
 model CohortRole {
@@ -74,8 +91,9 @@ model Application {
   role   CohortRole? @relation(fields: [roleId], references: [id])
 
   answers   ApplicationAnswer[]
-  docData   PracticeData?
+  docData   DocumentData?
   taskCards TaskCard[]
+  files ApplicationFile[]
 
   @@unique([userId, cohortId])
 }
@@ -85,12 +103,11 @@ model SurveyField {
   cohortId String
 
   label   String
-  type    String
+  type    SurveyFieldType
   options Json?
   order   Int
 
   cohort  Cohort              @relation(fields: [cohortId], references: [id])
-  answers ApplicationAnswer[]
 }
 
 model ApplicationAnswer {
@@ -105,19 +122,46 @@ model ApplicationAnswer {
   @@unique([applicationId, fieldId])
 }
 
-model PracticeData {
+model DocumentData {
   id            String @id @default(cuid())
   applicationId String @unique
 
-  studentFullName String?
-  groupName       String?
-
-  docFields Json @default("{}")
-
-  reportFileUrl    String?
-  isReportApproved Boolean @default(false)
+  data Json @default("{}")
 
   application Application @relation(fields: [applicationId], references: [id])
+}
+
+model DocumentTemplate {
+  id       String @id @default(cuid())
+  cohortId String
+
+  name String
+  slug String // unique name for access ex: /cohort/id/documents/slug
+
+  uri String
+
+  requirements Json @default("{}")
+
+  cohort Cohort @relation(fields: [cohortId], references: [id])
+
+  @@unique([cohortId, slug])
+}
+
+model ApplicationFile {
+  id            String @id @default(cuid())
+  applicationId String
+
+  type   FileType
+  storageUri    String
+  status FileStatus @default(PENDING)
+  comment String?
+
+  uploadedAt DateTime @default(now())
+  reviewedAt DateTime?
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@unique([applicationId, type])
 }
 
 model TaskCard {
@@ -138,9 +182,11 @@ model TaskCard {
 model TestTask {
   id       String @id @default(cuid())
   cohortId String
+  roleId   String
 
   content     String
   publishedAt DateTime?
 
-  cohort Cohort @relation(fields: [cohortId], references: [id])
+  cohort Cohort     @relation(fields: [cohortId], references: [id])
+  role   CohortRole @relation(fields: [roleId], references: [id])
 }
