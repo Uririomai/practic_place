@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 
+// Единый ключ для всех когорт — данные анкеты общие (ФИО, группа и т.д.)
 const STORAGE_KEY = "survey-data";
 
 export interface SurveyData {
@@ -9,9 +10,10 @@ export interface SurveyData {
 /**
  * Хук для хранения данных анкеты в localStorage.
  * Синхронизируется между вкладкой "Профиль" и формой анкеты.
+ * Данные общие для всех когорт (личные данные студента).
  */
-export function useSurveyData(cohortId: string) {
-  const key = `${STORAGE_KEY}-${cohortId}`;
+export function useSurveyData(_cohortId?: string) {
+  const key = STORAGE_KEY;
 
   const [data, setDataState] = useState<SurveyData>(() => {
     if (typeof window === "undefined") return {};

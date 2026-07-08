@@ -14,11 +14,12 @@ import {
 import { SurveyField } from "@/shared/api/types";
 import { api } from "@/shared/api/client";
 import { useSurveyData } from "@/shared/hooks/use-survey-data";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 interface SurveyFormProps {
   cohortId: string;
   fields: SurveyField[];
+  onSuccess?: () => void;
 }
 
 // Динамическая схема валидации
@@ -36,7 +37,7 @@ const createSurveySchema = (fields: SurveyField[]) => {
 
 type SurveyFormData = z.infer<ReturnType<typeof createSurveySchema>>;
 
-export function SurveyForm({ cohortId, fields }: SurveyFormProps) {
+export function SurveyForm({ cohortId, fields, onSuccess }: SurveyFormProps) {
   const { data: surveyData, setData: setSurveyData } = useSurveyData(cohortId);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -50,20 +51,23 @@ export function SurveyForm({ cohortId, fields }: SurveyFormProps) {
   // Сортируем поля по order
   const sortedFields = [...fields].sort((a, b) => a.order - b.order);
 
+  // Формируем defaultValues из данных профиля (localStorage)
+  const defaultValues = useMemo(() => {
+    const values: Record<string, string> = {};
+    sortedFields.forEach((field) => {
+      values[field.id] = surveyData[field.id] || "";
+    });
+    return values;
+  }, [surveyData, fields]);
+
   const form = useForm<SurveyFormData>({
     resolver: zodResolver(createSurveySchema(fields)),
-    defaultValues: {},
+    defaultValues,
   });
 
-  // Подставляем данные из профиля при загрузке
+  // Сброс формы при изменении данных профиля (defaultValues читаются один раз)
   useEffect(() => {
-    if (Object.keys(surveyData).length > 0) {
-      sortedFields.forEach((field) => {
-        if (surveyData[field.id]) {
-          form.setValue(field.id, surveyData[field.id]);
-        }
-      });
-    }
+    form.reset(defaultValues);
   }, [surveyData, fields]);
 
   const onSubmit = async (data: SurveyFormData) => {
@@ -83,6 +87,7 @@ export function SurveyForm({ cohortId, fields }: SurveyFormProps) {
 
       setIsSubmitted(true);
       showToast("success", "Заявка успешно отправлена!");
+      onSuccess?.();
     } catch {
       showToast("error", "Ошибка при отправке. Попробуйте ещё раз.");
     } finally {

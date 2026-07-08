@@ -19,8 +19,7 @@ import { useState } from "react";
 
 const navItems = [
   { href: "/cabinet/profile", label: "Профиль", icon: User },
-  { href: "/cabinet/survey", label: "Анкета", icon: ClipboardList },
-  { href: "/cabinet/test", label: "Тестовое задание", icon: FileText },
+  { href: "/cabinet/applications", label: "Заявки", icon: ClipboardList },
   { href: "/cabinet/documents", label: "Документы", icon: FileStack },
   { href: "/cabinet/tasks", label: "Задачи", icon: CalendarDays },
 ];

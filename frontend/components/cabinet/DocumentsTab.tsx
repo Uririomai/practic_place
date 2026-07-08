@@ -7,14 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   FileText,
   Download,
-  CheckCircle,
-  Clock,
-  AlertCircle,
   Upload,
   X,
   File,
-  ChevronRight,
-  Sparkles,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { StudentDocumentData } from "@/shared/api/types";
@@ -135,26 +130,6 @@ export function DocumentsTab() {
         <h2 className="text-2xl font-bold">Документы</h2>
         <p className="text-muted-foreground">Документы по практике</p>
       </div>
-
-      {/* Индикатор прогресса */}
-      <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="flex items-center gap-4 p-4">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <div className="flex-1">
-            <p className="text-sm font-medium">Прогресс оформления</p>
-            <div className="mt-2 flex gap-2">
-              <div className={`h-2 flex-1 rounded-full ${izStatus === "ready" ? "bg-green-500" : "bg-muted"}`} />
-              <div className={`h-2 flex-1 rounded-full ${reviewStatus === "ready" ? "bg-green-500" : reviewStatus === "pending" ? "bg-yellow-400" : "bg-muted"}`} />
-              <div className={`h-2 flex-1 rounded-full ${titleStatus === "ready" ? "bg-green-500" : titleStatus === "pending" ? "bg-yellow-400" : "bg-muted"}`} />
-            </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {izStatus === "ready" && reviewStatus === "ready" && titleStatus === "ready"
-                ? "Все документы готовы"
-                : `ИЗ: ${izStatus === "ready" ? "✓" : "—"} · Отзыв: ${reviewStatus === "ready" ? "✓" : reviewStatus === "pending" ? "ожидание" : "—"} · Титул: ${titleStatus === "ready" ? "✓" : titleStatus === "pending" ? "ожидание" : "—"}`}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Сгенерированные документы */}
       <div>
