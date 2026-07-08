@@ -3,7 +3,13 @@ import { Router } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/errors.js";
 
+import tasksRouter from "./tasks.routes.js"
+import filesRouter from "./files.routes.js"
+
 const router = Router();
+
+router.use(tasksRouter)
+router.use(filesRouter)
 
 
 /**
