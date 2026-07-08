@@ -2,11 +2,10 @@ import express from "express";
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
 import authRouter from "./routes/auth.routes.js";
-import cohortRouter from "./routes/cohort.routes.js";
-import applicationRouter from "./routes/application.routes.js";
+import cohortRouter from "./routes/cohorts/cohorts.routes.js";
+import applicationRouter from "./routes/applications/application.routes.js";
 import profileRouter from "./routes/profile.routes.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
-import { createInitialAdmin } from "./services/users.js";
 
 // ponytail: swagger-jsdoc reads @openapi JSDoc tags from route files
 const swaggerSpec = swaggerJsdoc({
@@ -166,6 +165,9 @@ export function createApp() {
   app.use(express.json());
 
   if (process.env.SWAGGER_ENABLED)
+    app.get("/api-docs.json", (_req, res) => {
+      res.json(swaggerSpec);
+    });
     app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use("/auth", authRouter);
