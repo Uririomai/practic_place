@@ -3,6 +3,7 @@ import {
   Cohort,
   SurveyField,
   Application,
+  ApplicationWithTest,
   TestTask,
   UserTestTask,
   StudentDocumentData,
@@ -10,6 +11,19 @@ import {
   CreateTaskCardDto,
   UpdateTaskCardDto,
   UpdateStudentDocumentDto,
+  CohortParticipant,
+  CreateCohortDto,
+  UpdateCohortDto,
+  SaveSurveyFieldsDto,
+  SaveCohortRolesDto,
+  SaveTestTaskDto,
+  AdminApplication,
+  AdminDocumentData,
+  ApproveApplicationDto,
+  RejectApplicationDto,
+  CohortRole,
+  SaveReviewDto,
+  StudentProfile,
 } from "./types";
 
 class ApiError extends Error {
@@ -93,6 +107,7 @@ export const api = {
   },
 
   cohorts: {
+    list: () => apiClient.request<Cohort[]>("/api/cohorts"),
     get: (cohortId: string) =>
       apiClient.request<Cohort>(`/api/cohorts/${cohortId}`),
   },
@@ -109,7 +124,7 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
-    getMy: () => apiClient.request<Application[]>("/api/applications/my"),
+    getMy: () => apiClient.request<ApplicationWithTest[]>("/api/applications/my"),
   },
 
   testTask: {
@@ -151,6 +166,110 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
+  },
+
+  cohortParticipants: {
+    list: (cohortId: string) =>
+      apiClient.request<CohortParticipant[]>(`/api/cohort-participants?cohortId=${cohortId}`),
+  },
+
+  // ===== Admin API =====
+  admin: {
+    // Когорты
+    createCohort: (data: CreateCohortDto) =>
+      apiClient.request<Cohort>("/api/cohorts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    updateCohort: (id: string, data: UpdateCohortDto) =>
+      apiClient.request<Cohort>(`/api/cohorts/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    deleteCohort: (id: string) =>
+      apiClient.request<void>(`/api/cohorts/${id}`, {
+        method: "DELETE",
+      }),
+
+    // Поля анкеты когорты
+    saveSurveyFields: (cohortId: string, data: SaveSurveyFieldsDto) =>
+      apiClient.request<SurveyField[]>(`/api/cohorts/${cohortId}/survey-fields`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+
+    // Роли когорты
+    getRoles: (cohortId: string) =>
+      apiClient.request<CohortRole[]>(`/api/cohorts/${cohortId}/roles`),
+    saveRoles: (cohortId: string, data: SaveCohortRolesDto) =>
+      apiClient.request<CohortRole[]>(`/api/cohorts/${cohortId}/roles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+
+    // Тестовое задание когорты
+    getTestTask: (cohortId: string) =>
+      apiClient.request<TestTask>(`/api/cohorts/${cohortId}/test-task`),
+    saveTestTask: (cohortId: string, data: SaveTestTaskDto) =>
+      apiClient.request<TestTask>(`/api/cohorts/${cohortId}/test-task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+
+    // Заявки когорты
+    getApplications: (cohortIds?: string[]) => {
+      const params = cohortIds?.length ? `?cohortIds=${cohortIds.join(",")}` : "";
+      return apiClient.request<AdminApplication[]>(`/api/admin/applications${params}`);
+    },
+    approveApplication: (id: string, data: ApproveApplicationDto) =>
+      apiClient.request<AdminApplication>(`/api/admin/applications/${id}/approve`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    rejectApplication: (id: string, data: RejectApplicationDto) =>
+      apiClient.request<AdminApplication>(`/api/admin/applications/${id}/reject`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    updateApplicationRole: (id: string, roleId: string) =>
+      apiClient.request<AdminApplication>(`/api/admin/applications/${id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleId }),
+      }),
+
+    // Документы когорты
+    getDocuments: (cohortIds?: string[]) => {
+      const params = cohortIds?.length ? `?cohortIds=${cohortIds.join(",")}` : "";
+      return apiClient.request<AdminDocumentData[]>(`/api/admin/documents${params}`);
+    },
+    saveReview: (documentId: string, data: SaveReviewDto) =>
+      apiClient.request<AdminDocumentData>(`/api/admin/student-document/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId, ...data }),
+      }),
+
+    // Отчёт
+    approveReport: (documentId: string) =>
+      apiClient.request<AdminDocumentData>(`/api/admin/student-document/${documentId}/report/approve`, {
+        method: "PUT",
+      }),
+    rejectReport: (documentId: string) =>
+      apiClient.request<AdminDocumentData>(`/api/admin/student-document/${documentId}/report/reject`, {
+        method: "PUT",
+      }),
+
+    // Профиль студента
+    getUserProfile: (userId: string) =>
+      apiClient.request<StudentProfile>(`/api/admin/users/${userId}/profile`),
   },
 };
 

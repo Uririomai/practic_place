@@ -1,13 +1,28 @@
 import { apiClient } from "@/shared/api/client";
 import {
   mockCohort,
+  mockCohorts,
   mockSurveyFields,
   mockTestTask,
   mockUserTestTask,
   mockApplications,
   mockStudentDocument,
   mockTaskCards,
+  mockCohortParticipants,
+  mockCohortRoles,
+  mockAdminApplications,
+  mockAdminDocuments,
+  mockStudentProfiles,
+  mockUsers,
 } from "./fixtures";
+import { Cohort, SurveyField, CohortRole, AdminApplication, AdminDocumentData } from "@/shared/api/types";
+
+// Копии моков для мутаций
+let cohorts = [...mockCohorts];
+let cohortRoles = [...mockCohortRoles];
+let adminApplications = [...mockAdminApplications];
+let adminDocuments = [...mockAdminDocuments];
+let surveyFields = [...mockSurveyFields];
 
 // Паттерны маршрутов: метод + regex + обработчик
 const routePatterns: Array<{
@@ -15,6 +30,7 @@ const routePatterns: Array<{
   pattern: RegExp;
   handler: (match: RegExpMatchArray, request: Request) => Response | Promise<Response>;
 }> = [
+  // ===== Auth =====
   {
     method: "POST",
     pattern: /^\/api\/auth\/login$/,
@@ -23,13 +39,13 @@ const routePatterns: Array<{
       if (body.email === "student@example.com") {
         return Response.json({
           token: "mock-jwt-token-student",
-          user: { id: "user-1", email: "student@example.com", createdAt: "2024-01-01" },
+          user: { id: "user-1", email: "student@example.com", fio: "Иванов Иван Иванович", role: "student" as const, createdAt: "2024-01-01" },
         });
       }
       if (body.email === "admin@example.com") {
         return Response.json({
           token: "mock-jwt-token-admin",
-          user: { id: "admin-1", email: "admin@example.com", createdAt: "2024-01-01" },
+          user: { id: "admin-1", email: "admin@example.com", fio: "Петров Пётр Петрович", role: "admin" as const, createdAt: "2024-01-01" },
         });
       }
       return new Response(JSON.stringify({ message: "Неверный email или пароль" }), {
@@ -45,22 +61,264 @@ const routePatterns: Array<{
       const body = (await request.json()) as { email: string; password: string };
       return Response.json({
         token: "mock-jwt-token-new",
-        user: { id: "new-user", email: body.email, createdAt: new Date().toISOString() },
+        user: { id: "new-user", email: body.email, fio: "", role: "student" as const, createdAt: new Date().toISOString() },
       });
     },
   },
   {
     method: "GET",
     pattern: /^\/api\/auth\/me$/,
-    handler: () =>
-      Response.json({ id: "user-1", email: "student@example.com", createdAt: "2024-01-01" }),
+    handler: (_match, request) => {
+      const authHeader = request.headers.get("Authorization");
+      const token = authHeader?.replace("Bearer ", "");
+
+      if (token === "mock-jwt-token-admin") {
+        return Response.json({ id: "admin-1", email: "admin@example.com", fio: "Петров Пётр Петрович", role: "admin" as const, createdAt: "2024-01-01" });
+      }
+      // По умолчанию — студент
+      return Response.json({ id: "user-1", email: "student@example.com", fio: "Иванов Иван Иванович", role: "student" as const, createdAt: "2024-01-01" });
+    },
+  },
+
+  // ===== Cohorts CRUD =====
+  {
+    method: "POST",
+    pattern: /^\/api\/cohorts$/,
+    handler: async (_match, request) => {
+      const body = (await request.json()) as Omit<Cohort, 'id'>;
+      const newCohort: Cohort = { ...body, id: "cohort-" + Date.now() };
+      cohorts.push(newCohort);
+      return Response.json(newCohort);
+    },
+  },
+  {
+    method: "PUT",
+    pattern: /^\/api\/cohorts\/([^/]+)$/,
+    handler: async (match, request) => {
+      const id = match[1];
+      const body = (await request.json()) as Partial<Cohort>;
+      const index = cohorts.findIndex((c) => c.id === id);
+      if (index !== -1) {
+        cohorts[index] = { ...cohorts[index], ...body };
+        return Response.json(cohorts[index]);
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+  {
+    method: "DELETE",
+    pattern: /^\/api\/cohorts\/([^/]+)$/,
+    handler: (match) => {
+      const id = match[1];
+      const index = cohorts.findIndex((c) => c.id === id);
+      if (index !== -1) {
+        cohorts.splice(index, 1);
+        return Response.json({ success: true });
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+
+  // ===== Cohort Survey Fields =====
+  {
+    method: "POST",
+    pattern: /^\/api\/cohorts\/([^/]+)\/survey-fields$/,
+    handler: async (match, request) => {
+      const cohortId = match[1];
+      const body = (await request.json()) as { fields: Omit<SurveyField, 'id'>[] };
+      surveyFields = body.fields.map((f, i) => ({ ...f, id: `${cohortId}-field-${i}`, cohortId }));
+      return Response.json(surveyFields);
+    },
+  },
+
+  // ===== Cohort Roles =====
+  {
+    method: "GET",
+    pattern: /^\/api\/cohorts\/([^/]+)\/roles$/,
+    handler: (match) => {
+      const cohortId = match[1];
+      const roles = cohortRoles.filter((r) => r.cohortId === cohortId);
+      return Response.json(roles);
+    },
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/cohorts\/([^/]+)\/roles$/,
+    handler: async (match, request) => {
+      const cohortId = match[1];
+      const body = (await request.json()) as { roles: { name: string }[] };
+      // Удаляем старые роли когорты
+      cohortRoles = cohortRoles.filter((r) => r.cohortId !== cohortId);
+      // Добавляем новые
+      const newRoles: CohortRole[] = body.roles.map((r, i) => ({
+        id: `role-${cohortId}-${i}`,
+        cohortId,
+        name: r.name,
+      }));
+      cohortRoles.push(...newRoles);
+      return Response.json(newRoles);
+    },
+  },
+
+  // ===== Cohort Test Task =====
+  {
+    method: "GET",
+    pattern: /^\/api\/cohorts\/([^/]+)\/test-task$/,
+    handler: (match) => {
+      const cohortId = match[1];
+      const task = mockTestTask.cohortId === cohortId ? mockTestTask : null;
+      if (task) return Response.json(task);
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/cohorts\/([^/]+)\/test-task$/,
+    handler: async (match, request) => {
+      const cohortId = match[1];
+      const body = (await request.json()) as { question: string };
+      return Response.json({
+        id: "test-task-" + cohortId,
+        cohortId,
+        question: body.question,
+        publishedAt: new Date().toISOString(),
+      });
+    },
+  },
+
+  // ===== Admin Applications =====
+  {
+    method: "GET",
+    pattern: /^\/api\/admin\/applications/,
+    handler: (_match, request) => {
+      const url = new URL(request.url);
+      const cohortIdsParam = url.searchParams.get("cohortIds");
+      let filtered = adminApplications;
+      if (cohortIdsParam) {
+        const cohortIds = cohortIdsParam.split(",");
+        filtered = filtered.filter((a) => cohortIds.includes(a.cohortId));
+      }
+      return Response.json(filtered);
+    },
+  },
+  {
+    method: "PUT",
+    pattern: /^\/api\/admin\/applications\/([^/]+)\/approve$/,
+    handler: async (match, request) => {
+      const id = match[1];
+      const body = (await request.json()) as { roleId: string };
+      const index = adminApplications.findIndex((a) => a.id === id);
+      if (index !== -1) {
+        const role = cohortRoles.find((r) => r.id === body.roleId);
+        adminApplications[index] = {
+          ...adminApplications[index],
+          status: "approved",
+          roleName: role?.name,
+        };
+        return Response.json(adminApplications[index]);
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+  {
+    method: "PUT",
+    pattern: /^\/api\/admin\/applications\/([^/]+)\/reject$/,
+    handler: async (match, request) => {
+      const id = match[1];
+      const body = (await request.json()) as { comment: string };
+      const index = adminApplications.findIndex((a) => a.id === id);
+      if (index !== -1) {
+        adminApplications[index] = {
+          ...adminApplications[index],
+          status: "rejected",
+          reviewComment: body.comment,
+        };
+        return Response.json(adminApplications[index]);
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+  {
+    method: "PATCH",
+    pattern: /^\/api\/admin\/applications\/([^/]+)\/role$/,
+    handler: async (match, request) => {
+      const id = match[1];
+      const body = (await request.json()) as { roleId: string };
+      const index = adminApplications.findIndex((a) => a.id === id);
+      if (index !== -1) {
+        const role = cohortRoles.find((r) => r.id === body.roleId);
+        adminApplications[index] = {
+          ...adminApplications[index],
+          roleName: role?.name,
+        };
+        return Response.json(adminApplications[index]);
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+
+  // ===== Admin Documents =====
+  {
+    method: "GET",
+    pattern: /^\/api\/admin\/documents/,
+    handler: (_match, request) => {
+      const url = new URL(request.url);
+      const cohortIdsParam = url.searchParams.get("cohortIds");
+      let filtered = adminDocuments;
+      if (cohortIdsParam) {
+        const cohortIds = cohortIdsParam.split(",");
+        filtered = filtered.filter((d) => cohortIds.includes(d.cohortId));
+      }
+      return Response.json(filtered);
+    },
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/admin\/student-document\/review$/,
+    handler: async (_match, request) => {
+      const body = (await request.json()) as { documentId: string } & Record<string, unknown>;
+      const { documentId, ...reviewData } = body;
+      const index = adminDocuments.findIndex((d) => d.id === documentId);
+      if (index !== -1) {
+        adminDocuments[index] = { ...adminDocuments[index], ...reviewData };
+        return Response.json(adminDocuments[index]);
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+
+  // ===== Student Profile =====
+  {
+    method: "GET",
+    pattern: /^\/api\/admin\/users\/([^/]+)\/profile$/,
+    handler: (match) => {
+      const userId = match[1];
+      const profile = mockStudentProfiles[userId];
+      if (profile) {
+        return Response.json(profile);
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/admin\/users$/,
+    handler: () => Response.json(mockUsers),
+  },
+
+  // ===== Existing handlers =====
+  {
+    method: "GET",
+    pattern: /^\/api\/cohorts$/,
+    handler: () => Response.json(cohorts),
   },
   {
     method: "GET",
     pattern: /^\/api\/cohorts\/([^/]+)$/,
     handler: (match) => {
       const cohortId = match[1];
-      if (cohortId === "test-cohort-id") return Response.json(mockCohort);
+      const cohort = cohorts.find((c) => c.id === cohortId);
+      if (cohort) return Response.json(cohort);
       return new Response(JSON.stringify({ message: "Not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
@@ -70,13 +328,13 @@ const routePatterns: Array<{
   {
     method: "GET",
     pattern: /^\/api\/survey\/fields$/,
-    handler: () => Response.json(mockSurveyFields),
+    handler: () => Response.json(surveyFields),
   },
   {
     method: "POST",
     pattern: /^\/api\/applications$/,
     handler: () =>
-      Response.json({ id: "app-1", status: "pending", createdAt: new Date().toISOString() }),
+      Response.json({ id: "app-" + Date.now(), status: "pending", createdAt: new Date().toISOString() }),
   },
   {
     method: "GET",
@@ -110,6 +368,16 @@ const routePatterns: Array<{
     method: "GET",
     pattern: /^\/api\/applications\/my$/,
     handler: () => Response.json(mockApplications),
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/cohort-participants/,
+    handler: (_match, request) => {
+      const url = new URL(request.url);
+      const cohortId = url.searchParams.get("cohortId");
+      if (cohortId === "test-cohort-id") return Response.json(mockCohortParticipants);
+      return Response.json([]);
+    },
   },
   {
     method: "GET",

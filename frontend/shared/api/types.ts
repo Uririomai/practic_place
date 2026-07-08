@@ -18,6 +18,8 @@ export interface AuthResponse {
 export interface User {
   id: string;
   email: string;
+  fio: string;
+  role: "student" | "admin";
   createdAt: string;
 }
 
@@ -50,6 +52,12 @@ export interface Application {
   surveyData: Record<string, string>;
   reviewComment?: string;
   createdAt: string;
+}
+
+// Заявка со статусом тестового задания
+export interface ApplicationWithTest extends Application {
+  testStatus: TestTaskStatus;
+  testAnswer?: string;
 }
 
 export interface CohortRole {
@@ -132,4 +140,82 @@ export interface UpdateStudentDocumentDto {
   specialty?: string;
   practice_topic?: string;
   main_stage_tasks?: string;
+}
+
+// Участник когорты (для вкладки «Задачи» — режим «Показать всех»)
+export interface CohortParticipant {
+  userId: string;
+  email: string;
+  fio: string;
+  role: string;
+}
+
+// ===== Admin DTOs =====
+
+export interface CreateCohortDto {
+  name: string;
+  applicationStart: string;
+  applicationEnd: string;
+  practiceStart: string;
+  practiceEnd: string;
+}
+
+export interface UpdateCohortDto {
+  name?: string;
+  applicationStart?: string;
+  applicationEnd?: string;
+  practiceStart?: string;
+  practiceEnd?: string;
+}
+
+export interface SaveSurveyFieldsDto {
+  fields: Omit<SurveyField, 'id'>[];
+}
+
+export interface SaveCohortRolesDto {
+  roles: { name: string }[];
+}
+
+export interface SaveTestTaskDto {
+  question: string;
+}
+
+// Заявка с информацией о пользователе (для админки)
+export interface AdminApplication extends ApplicationWithTest {
+  user: Pick<User, 'id' | 'email' | 'fio'>;
+  cohort: Pick<Cohort, 'id' | 'name'>;
+  roleName?: string;
+}
+
+export interface AdminDocumentData extends StudentDocumentData {
+  user: Pick<User, 'id' | 'email' | 'fio'>;
+  cohort: Pick<Cohort, 'id' | 'name'>;
+}
+
+export interface ApproveApplicationDto {
+  roleId: string;
+}
+
+export interface RejectApplicationDto {
+  comment: string;
+}
+
+export interface SaveReviewDto {
+  review_activities: string;
+  review_characteristic: string;
+  review_employed: boolean;
+  review_next_practice: boolean;
+  review_employment_offer: boolean;
+  review_suggestions: string;
+  review_grade: string;
+}
+
+// ===== Student Profile =====
+
+export interface StudentProfile {
+  user: User;
+  applications: AdminApplication[];
+  documents: AdminDocumentData[];
+  tasks: TaskCard[];
+  cohorts: Cohort[];
 }
