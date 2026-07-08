@@ -30,10 +30,9 @@ export function LoginForm() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      await login(data.email, data.password);
-      // Даём время на сохранение cookie перед навигацией
+      const response = await login(data.email, data.password);
       await new Promise((r) => setTimeout(r, 100));
-      router.push('/cabinet');
+      router.push(response.user.role === 'admin' ? '/admin' : '/cabinet');
     } catch (error) {
       form.setError('email', {
         type: 'manual',

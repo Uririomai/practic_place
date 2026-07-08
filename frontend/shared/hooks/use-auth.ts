@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/shared/api/types';
 import { api, apiClient } from '@/shared/api/client';
+import { useMockReady } from '@/components/MswProvider';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const mockReady = useMockReady();
 
   useEffect(() => {
+    // Ждём загрузки мока перед запросами
+    if (!mockReady) return;
+
     const stored = localStorage.getItem('token');
     if (stored) {
       setToken(stored);
@@ -26,7 +31,7 @@ export function useAuth() {
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [mockReady]);
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await api.auth.login({ email, password });
@@ -55,6 +60,7 @@ export function useAuth() {
     apiClient.clearToken();
     setToken(null);
     setUser(null);
+    window.location.href = '/';
   }, []);
 
   return { user, token, loading, login, register, logout };

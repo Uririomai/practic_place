@@ -37,9 +37,9 @@ export function RegisterForm() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser(data.email, data.password);
+      const response = await registerUser(data.email, data.password);
       await new Promise((r) => setTimeout(r, 100));
-      router.push('/cabinet');
+      router.push(response.user.role === 'admin' ? '/admin' : '/cabinet');
     } catch (error) {
       form.setError('email', {
         type: 'manual',

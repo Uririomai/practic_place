@@ -9,12 +9,17 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
     pathname === '/' ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/register') ||
     pathname.startsWith('/apply') ||
     pathname.startsWith('/public')
   ) {
     return NextResponse.next();
+  }
+
+  // Если авторизован и на странице входа/регистрации — редирект в кабинет
+  if (token && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
+    const isAdmin = token.value === 'mock-jwt-token-admin';
+    const redirectUrl = new URL(isAdmin ? '/admin' : '/cabinet', request.url);
+    return NextResponse.redirect(redirectUrl);
   }
 
   const protectedRoutes = ['/cabinet', '/admin'];
@@ -25,17 +30,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Проверка роли для админ-роутов
-  if (token && pathname.startsWith('/admin')) {
-    try {
-      const payload = JSON.parse(atob(token.value.split('.')[1]));
-      if (payload.role !== 'admin') {
-        const cabinetUrl = new URL('/cabinet', request.url);
-        return NextResponse.redirect(cabinetUrl);
-      }
-    } catch {
-      const loginUrl = new URL('/login', request.url);
-      return NextResponse.redirect(loginUrl);
+  // Проверка роли
+  if (token) {
+    const isAdmin = token.value === 'mock-jwt-token-admin';
+
+    // Админ не может зайти в лк студента
+    if (isAdmin && pathname.startsWith('/cabinet')) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+
+    // Студент не может зайти в админку
+    if (!isAdmin && pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/cabinet', request.url));
     }
   }
 
