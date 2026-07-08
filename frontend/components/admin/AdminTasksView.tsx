@@ -94,7 +94,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
       setLoading(true);
       try {
         const [tasksData, participantsData] = await Promise.all([
-          api.taskCards.list(cohort.id, currentWeekStart.toISOString().split("T")[0]),
+          api.taskCards.list({ cohortId: cohort.id, date: currentWeekStart.toISOString().split("T")[0] }),
           api.cohortParticipants.list(cohort.id),
         ]);
         setTasks(tasksData);
@@ -323,12 +323,12 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
                                       </p>
                                     )}
                                     <div className="flex items-center justify-between">
-                                      {card.artifact_link && (
+                                      {card.artifactLink && (
                                         <ExternalLink className="h-3 w-3 text-primary" />
                                       )}
                                       <span className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground">
                                         <Clock className="h-2.5 w-2.5" />
-                                        {formatUpdatedAt(card.updated_at)}
+                                        {formatUpdatedAt(card.updatedAt)}
                                       </span>
                                     </div>
                                   </div>
@@ -391,17 +391,17 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
             )}
 
             {/* Артефакт */}
-            {viewingCard?.artifact_link && (
+            {viewingCard?.artifactLink && (
               <div>
                 <label className="text-sm font-medium">Артефакт</label>
                 <a
-                  href={viewingCard.artifact_link}
+                  href={viewingCard.artifactLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1 flex items-center gap-2 text-sm text-primary hover:underline"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  {viewingCard.artifact_link}
+                  {viewingCard.artifactLink}
                 </a>
               </div>
             )}
@@ -409,7 +409,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
             {/* Время обновления */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
               <Clock className="h-3 w-3" />
-              <span>Обновлено: {viewingCard ? formatUpdatedAt(viewingCard.updated_at) : ""}</span>
+              <span>Обновлено: {viewingCard ? formatUpdatedAt(viewingCard.updatedAt) : ""}</span>
             </div>
           </div>
         </DialogContent>

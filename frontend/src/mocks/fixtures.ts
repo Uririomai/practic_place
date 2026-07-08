@@ -90,7 +90,7 @@ export const mockSurveyFields: SurveyField[] = [
 export const mockTestTask: TestTask = {
   id: "test-task-1",
   cohortId: "test-cohort-id",
-  question: `Опишите основные этапы разработки веб-приложения с использованием React и Node.js.
+  content: `Опишите основные этапы разработки веб-приложения с использованием React и Node.js.
 
 Какие инструменты и подходы вы бы использовали для организации студенческой практики в университете?`,
   publishedAt: "2024-06-01T00:00:00Z",
@@ -119,9 +119,21 @@ export const mockApplications: ApplicationWithTest[] = [
   },
 ];
 
+// Для совместимости с новым API
+export const mockApplicationsWithoutSurvey: ApplicationWithTest[] = [
+  {
+    id: "app-new",
+    userId: "user-1",
+    cohortId: "test-cohort-id",
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    testStatus: "not_submitted",
+  },
+];
+
 export const mockStudentDocument: StudentDocumentData = {
   id: "doc-1",
-  userId: "user-1",
+  applicationId: "app-1",
   cohortId: "test-cohort-id",
   student_fio: "Иванов Иван Иванович",
   group: "РИ-330930",
@@ -144,65 +156,71 @@ export const mockStudentDocument: StudentDocumentData = {
 export const mockTaskCards: TaskCard[] = [
   {
     id: "task-1",
+    applicationId: "app-1",
     userId: "user-1",
     cohortId: "test-cohort-id",
     date: "2024-07-01",
     title: "Знакомство с проектом",
     description: "Изучение документации, настройка окружения, клонирование репозитория",
-    artifact_link: "https://github.com/example/repo",
-    updated_at: "2024-07-01T14:00:00Z",
+    artifactLink: "https://github.com/example/repo",
+    updatedAt: "2024-07-01T14:00:00Z",
   },
   {
     id: "task-2",
+    applicationId: "app-1",
     userId: "user-1",
     cohortId: "test-cohort-id",
     date: "2024-07-02",
     title: "Проектирование базы данных",
     description: "Создание ER-диаграммы, определение сущностей и связей",
-    artifact_link: "",
-    updated_at: "2024-07-02T16:30:00Z",
+    artifactLink: "",
+    updatedAt: "2024-07-02T16:30:00Z",
   },
   {
     id: "task-3",
+    applicationId: "app-1",
     userId: "user-1",
     cohortId: "test-cohort-id",
     date: "2024-07-03",
     title: "Настройка CI/CD",
     description: "Настройка GitHub Actions, автоматический деплой на Vercel",
-    artifact_link: "https://github.com/example/repo/actions",
-    updated_at: "2024-07-03T12:00:00Z",
+    artifactLink: "https://github.com/example/repo/actions",
+    updatedAt: "2024-07-03T12:00:00Z",
   },
   // Задачи второго участника
   {
     id: "task-4",
+    applicationId: "app-2",
     userId: "user-2",
     cohortId: "test-cohort-id",
     date: "2024-07-01",
     title: "Дизайн-макеты в Figma",
     description: "Разработка дизайн-системы, создание макетов основных экранов",
-    artifact_link: "https://figma.com/file/abc123",
-    updated_at: "2024-07-01T18:00:00Z",
+    artifactLink: "https://figma.com/file/abc123",
+    updatedAt: "2024-07-01T18:00:00Z",
   },
   {
     id: "task-5",
+    applicationId: "app-2",
     userId: "user-2",
     cohortId: "test-cohort-id",
     date: "2024-07-02",
     title: "Прототипирование",
     description: "Создание интерактивного прототипа для тестирования",
-    artifact_link: "https://figma.com/proto/abc123",
-    updated_at: "2024-07-02T15:00:00Z",
+    artifactLink: "https://figma.com/proto/abc123",
+    updatedAt: "2024-07-02T15:00:00Z",
   },
   // Задачи третьего участника
   {
     id: "task-6",
+    applicationId: "app-3",
     userId: "user-3",
     cohortId: "test-cohort-id",
     date: "2024-07-01",
     title: "Анализ требований",
     description: "Интервью с заказчиком, составление BRD, приоритизация задач",
-    artifact_link: "",
-    updated_at: "2024-07-01T17:00:00Z",
+    artifactLink: "",
+    updatedAt: "2024-07-01T17:00:00Z",
   },
 ];
 
@@ -254,7 +272,7 @@ export const mockAdminApplications: AdminApplication[] = [
     testAnswer: "Основные этапы: планирование, проектирование, разработка, тестирование...",
     user: { id: "user-1", email: "student@example.com", fio: "Иванов Иван Иванович" },
     cohort: { id: "test-cohort-id", name: "Летняя практика 2024" },
-    roleName: "Frontend",
+    role: { id: "role-1", cohortId: "test-cohort-id", name: "Frontend" },
   },
   {
     id: "app-2",
@@ -317,11 +335,12 @@ export const mockAdminDocuments: AdminDocumentData[] = [
     ...mockStudentDocument,
     user: { id: "user-1", email: "student@example.com", fio: "Иванов Иван Иванович" },
     cohort: { id: "test-cohort-id", name: "Летняя практика 2024" },
+    role: { id: "role-1", cohortId: "test-cohort-id", name: "Frontend" },
   },
   // 2. ИЗ заполнено, отчёт загружен, на проверке, отзыв не заполнен
   {
     id: "doc-2",
-    userId: "user-2",
+    applicationId: "app-2",
     cohortId: "test-cohort-id",
     student_fio: "Петрова Анна Сергеевна",
     group: "РИ-330931",
@@ -342,11 +361,12 @@ export const mockAdminDocuments: AdminDocumentData[] = [
     report_admin_approved: false,
     user: { id: "user-2", email: "petrova@example.com", fio: "Петрова Анна Сергеевна" },
     cohort: { id: "test-cohort-id", name: "Летняя практика 2024" },
+    role: { id: "role-3", cohortId: "test-cohort-id", name: "Дизайнер" },
   },
   // 3. ИЗ заполнено, отчёт одобрен, отзыв полностью заполнен
   {
     id: "doc-3",
-    userId: "user-3",
+    applicationId: "app-3",
     cohortId: "test-cohort-id",
     student_fio: "Сидоров Алексей Петрович",
     group: "РИ-330932",
@@ -357,7 +377,7 @@ export const mockAdminDocuments: AdminDocumentData[] = [
     practice_topic: "Внедрение системы непрерывной интеграции",
     main_stage_tasks: "Настройка CI/CD, написание тестов, документирование",
     review_activities: "Настроил пайплайн GitHub Actions, написал 50+ автотестов, подготовил документацию",
-    review_characteristic: "Отлично подготовлен, самостоятельно осваивает новые технологии",
+    review_characteristic: "Отлично подгудовлен, самостоятельно осваивает новые технологии",
     review_employed: true,
     review_next_practice: true,
     review_employment_offer: true,
@@ -367,11 +387,12 @@ export const mockAdminDocuments: AdminDocumentData[] = [
     report_admin_approved: true,
     user: { id: "user-3", email: "sidorov@example.com", fio: "Сидоров Алексей Петрович" },
     cohort: { id: "test-cohort-id", name: "Летняя практика 2024" },
+    role: { id: "role-4", cohortId: "test-cohort-id", name: "Аналитик" },
   },
   // 4. ИЗ не заполнено, отчёт не загружен
   {
     id: "doc-4",
-    userId: "user-4",
+    applicationId: "app-4",
     cohortId: "winter-2025",
     student_fio: "",
     group: "",
@@ -395,7 +416,7 @@ export const mockAdminDocuments: AdminDocumentData[] = [
   // 5. ИЗ заполнено, отчёт загружен на проверке, отзыв частично заполнен
   {
     id: "doc-5",
-    userId: "user-5",
+    applicationId: "app-5",
     cohortId: "summer-2026",
     student_fio: "Новиков Дмитрий Сергеевич",
     group: "РИ-330934",
@@ -416,11 +437,12 @@ export const mockAdminDocuments: AdminDocumentData[] = [
     report_admin_approved: false,
     user: { id: "user-5", email: "novikov@example.com", fio: "Новиков Дмитрий Сергеевич" },
     cohort: { id: "summer-2026", name: "Летняя практика 2026" },
+    role: { id: "role-2", cohortId: "summer-2026", name: "Backend" },
   },
   // 6. ИЗ заполнено, отчёт одобрен, отзыв заполнен, оценка "хорошо"
   {
     id: "doc-6",
-    userId: "user-6",
+    applicationId: "app-6",
     cohortId: "summer-2026",
     student_fio: "Морозова Елена Викторовна",
     group: "РИ-330935",
@@ -441,6 +463,7 @@ export const mockAdminDocuments: AdminDocumentData[] = [
     report_admin_approved: true,
     user: { id: "user-6", email: "morozova@example.com", fio: "Морозова Елена Викторовна" },
     cohort: { id: "summer-2026", name: "Летняя практика 2026" },
+    role: { id: "role-1", cohortId: "summer-2026", name: "Frontend" },
   },
 ];
 
@@ -460,42 +483,42 @@ export const mockStudentProfiles: Record<string, StudentProfile> = {
   "user-1": {
     user: mockUsers[0],
     applications: mockAdminApplications.filter(a => a.userId === "user-1"),
-    documents: mockAdminDocuments.filter(d => d.userId === "user-1"),
+    documents: mockAdminDocuments.filter(d => d.user?.id === "user-1"),
     tasks: mockTaskCards.filter(t => t.userId === "user-1"),
     cohorts: mockCohorts,
   },
   "user-2": {
     user: mockUsers[1],
     applications: mockAdminApplications.filter(a => a.userId === "user-2"),
-    documents: mockAdminDocuments.filter(d => d.userId === "user-2"),
+    documents: mockAdminDocuments.filter(d => d.user?.id === "user-2"),
     tasks: mockTaskCards.filter(t => t.userId === "user-2"),
     cohorts: [mockCohorts[0]],
   },
   "user-3": {
     user: mockUsers[2],
     applications: mockAdminApplications.filter(a => a.userId === "user-3"),
-    documents: mockAdminDocuments.filter(d => d.userId === "user-3"),
+    documents: mockAdminDocuments.filter(d => d.user?.id === "user-3"),
     tasks: mockTaskCards.filter(t => t.userId === "user-3"),
     cohorts: [mockCohorts[0]],
   },
   "user-4": {
     user: mockUsers[3],
     applications: mockAdminApplications.filter(a => a.userId === "user-4"),
-    documents: mockAdminDocuments.filter(d => d.userId === "user-4"),
+    documents: mockAdminDocuments.filter(d => d.user?.id === "user-4"),
     tasks: [],
     cohorts: [mockCohorts[1]],
   },
   "user-5": {
     user: mockUsers[4],
     applications: [],
-    documents: mockAdminDocuments.filter(d => d.userId === "user-5"),
+    documents: mockAdminDocuments.filter(d => d.user?.id === "user-5"),
     tasks: [],
     cohorts: [mockCohorts[2]],
   },
   "user-6": {
     user: mockUsers[5],
     applications: [],
-    documents: mockAdminDocuments.filter(d => d.userId === "user-6"),
+    documents: mockAdminDocuments.filter(d => d.user?.id === "user-6"),
     tasks: [],
     cohorts: [mockCohorts[2]],
   },

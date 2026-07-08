@@ -43,7 +43,7 @@ export function TestTaskView({
     if (!answer.trim()) return;
     setSubmitting(true);
     try {
-      await api.testTask.submit({ cohortId, answer });
+      await api.testTask.submitAnswer(cohortId, answer);
       setStatus("pending");
       showToast("success", "Задание успешно отправлено на проверку!");
       // Редирект в лк через 1.5с
@@ -60,7 +60,7 @@ export function TestTaskView({
   const handleResubmit = async () => {
     setSubmitting(true);
     try {
-      await api.testTask.submit({ cohortId, answer });
+      await api.testTask.submitAnswer(cohortId, answer);
       setStatus("pending");
       showToast("success", "Задание успешно отправлено на проверку!");
       setTimeout(() => {
@@ -108,7 +108,7 @@ export function TestTaskView({
       </div>
 
       <div className="rounded-lg border p-4">
-        <p className="whitespace-pre-wrap">{testTask.question}</p>
+        <p className="whitespace-pre-wrap">{testTask.content}</p>
       </div>
 
       <div>

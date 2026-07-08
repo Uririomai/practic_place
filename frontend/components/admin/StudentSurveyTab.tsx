@@ -40,7 +40,7 @@ export function StudentSurveyTab({ applications }: StudentSurveyTabProps) {
           </div>
 
           <div className="space-y-2">
-            {Object.entries(app.surveyData).map(([key, value]) => (
+            {Object.entries(app.surveyData || {}).map(([key, value]) => (
               <div key={key} className="flex justify-between py-2 border-b last:border-0">
                 <span className="text-sm text-muted-foreground">
                   {fieldLabels[key] || key}

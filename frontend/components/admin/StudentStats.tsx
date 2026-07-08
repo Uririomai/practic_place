@@ -12,7 +12,7 @@ interface StudentStatsProps {
 }
 
 export function StudentStats({ tasks, allTasksCount, documents, cohorts }: StudentStatsProps) {
-  const completedCount = tasks.filter(t => t.artifact_link).length;
+  const completedCount = tasks.filter(t => t.artifactLink).length;
   const completionPercent = allTasksCount > 0
     ? Math.round((completedCount / allTasksCount) * 100)
     : 0;

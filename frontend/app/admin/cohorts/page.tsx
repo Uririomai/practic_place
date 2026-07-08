@@ -103,7 +103,7 @@ export default function AdminCohortsPage() {
     setSelectedCohort(cohort);
     // Загружаем существующие поля или используем дефолтные
     try {
-      const fields = await api.survey.getFields();
+      const fields = await api.survey.getFields(cohort.id);
       // Фильтруем поля для этой когорты (в моке все поля общие)
       setSurveyFields(fields.length > 0 ? fields : DEFAULT_SURVEY_FIELDS.map((f, i) => ({ ...f, id: `default-${i}` })));
     } catch {
@@ -144,19 +144,19 @@ export default function AdminCohortsPage() {
   const handleOpenTest = async (cohort: Cohort) => {
     setSelectedCohort(cohort);
     try {
-      const task = await api.admin.getTestTask(cohort.id);
-      setTestTask(task);
+      const tasks = await api.admin.getTestTask(cohort.id);
+      setTestTask(tasks[0] || null);
     } catch {
       setTestTask(null);
     }
     setEditorMode("test");
   };
 
-  const handleSaveTest = async (question: string) => {
+  const handleSaveTest = async (content: string) => {
     if (!selectedCohort) return;
     setSaving(true);
     try {
-      await api.admin.saveTestTask(selectedCohort.id, { question });
+      await api.admin.saveTestTask(selectedCohort.id, { content });
       setEditorMode(null);
     } finally {
       setSaving(false);

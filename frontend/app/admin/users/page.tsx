@@ -30,7 +30,7 @@ export default function AdminUsersPage() {
     if (search) {
       const query = search.toLowerCase();
       return (
-        user.fio.toLowerCase().includes(query) ||
+        (user.fio || user.email).toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query)
       );
     }

@@ -28,7 +28,7 @@ export function DocumentsTable({
   const [reviewDoc, setReviewDoc] = useState<AdminDocumentData | null>(null);
 
   const filtered = documents.filter((doc) => {
-    if (search && !doc.user.fio.toLowerCase().includes(search.toLowerCase())) {
+    if (search && !(doc.user.fio || doc.user.email).toLowerCase().includes(search.toLowerCase())) {
       return false;
     }
     return true;
@@ -118,7 +118,7 @@ export function DocumentsTable({
                   onClick={() => setReviewDoc(doc)}
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                 >
-                  <td className="px-4 py-3 font-medium">{doc.user.fio}</td>
+                  <td className="px-4 py-3 font-medium">{doc.user.fio || doc.user.email}</td>
                   <td className="px-4 py-3 text-muted-foreground">{doc.cohort.name}</td>
                   <td className="px-4 py-3 text-center">
                     {checkmark(!!(doc.student_fio && doc.group && doc.direction_code))}
