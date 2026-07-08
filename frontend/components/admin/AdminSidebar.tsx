@@ -1,0 +1,126 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/shared/hooks/use-auth";
+import {
+  Users,
+  ClipboardList,
+  FileStack,
+  CalendarDays,
+  LogOut,
+  GraduationCap,
+  Menu,
+  X,
+  Shield,
+} from "lucide-react";
+import { useState } from "react";
+
+const navItems = [
+  { href: "/admin/cohorts", label: "Когорты", icon: GraduationCap },
+  { href: "/admin/applications", label: "Заявки", icon: ClipboardList },
+  { href: "/admin/documents", label: "Документы", icon: FileStack },
+  { href: "/admin/tasks", label: "Задачи", icon: CalendarDays },
+  { href: "/admin/users", label: "Пользователи", icon: Users },
+];
+
+export function AdminSidebar() {
+  const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isActive = (href: string) => pathname.startsWith(href);
+
+  const navContent = (
+    <>
+      {/* Логотип */}
+      <div className="flex items-center gap-3 px-5 py-6">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive text-destructive-foreground">
+          <Shield className="h-5 w-5" />
+        </div>
+        <span className="text-lg font-semibold">Админ</span>
+      </div>
+
+      {/* Навигация */}
+      <nav className="flex-1 space-y-1 px-3">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                active
+                  ? "bg-destructive/10 text-destructive"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Подвал: пользователь + выход */}
+      <div className="border-t px-3 py-4">
+        <div className="mb-3 px-3">
+          <p className="truncate text-sm font-medium">{user?.fio || user?.email || "—"}</p>
+          <p className="text-xs text-muted-foreground">Администратор</p>
+        </div>
+        <button
+          onClick={logout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          Выйти
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Бургер-кнопка для мобилки */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-4 top-4 z-50 rounded-lg border bg-background p-2 shadow-md md:hidden"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Оверлей для мобилки */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Десктоп сайдбар */}
+      <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:z-30 md:flex md:w-64 md:flex-col border-r bg-card">
+        {navContent}
+      </aside>
+
+      {/* Мобильный сайдбар */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card transition-transform duration-200 md:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute right-3 top-5 rounded-sm p-1 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        {navContent}
+      </aside>
+    </>
+  );
+}
