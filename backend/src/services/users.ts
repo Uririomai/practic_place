@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { AppError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
+import { logger } from "../lib/logger.js";
 import { $Enums } from "@prisma/client";
 
 
@@ -31,7 +32,7 @@ export async function createInitialAdmin() {
 
   await createUser(email, password, "ADMIN");
 
-  console.log("Initial admin created");
+  logger.info("Initial admin created");
 }
 
 
