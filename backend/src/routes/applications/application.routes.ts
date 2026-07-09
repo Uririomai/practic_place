@@ -5,11 +5,13 @@ import { AppError } from "../../lib/errors.js";
 
 import tasksRouter from "./tasks.routes.js"
 import filesRouter from "./files.routes.js"
+import documentsRouter from "./documents.router.js"
 
 const router = Router();
 
 router.use(tasksRouter)
 router.use(filesRouter)
+router.use(documentsRouter)
 
 
 /**
