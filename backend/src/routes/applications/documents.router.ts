@@ -4,6 +4,7 @@ import { AppError } from "../../lib/errors.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { storage } from "../../lib/storage/index.js";
 import { checkDocumentAvailability } from "../../lib/documents/check-availability.js";
+import { generateDocument } from "../../lib/documents/generator.js";
 
 const router = Router();
 
@@ -269,14 +270,19 @@ router.get(
       }
 
 
-      const file =
-        await storage.read(
-          template.uri,
-        );
+      const docData = await prisma.documentData.findUnique({
+        where: { applicationId: application.id },
+      });
+
+
+      const file = await generateDocument(
+        template.uri,
+        (docData?.data ?? {}) as Record<string, unknown>,
+      );
 
 
       res
-        .type("application/octet-stream")
+        .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         .send(file);
 
     } catch (e) {
