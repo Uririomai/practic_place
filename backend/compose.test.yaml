@@ -18,16 +18,13 @@ services:
   test:
     build:
       context: .
-      dockerfile: ./Dockerfile.dev
+      dockerfile: ./Dockerfile.test
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/app_test
       JWT_SECRET: test-secret
       PORT: 3000
       ADMIN_EMAIL: admin123@example.com
       ADMIN_PASSWORD: 12345678
-    volumes:
-      - .:/app
-      - /app/node_modules
     depends_on:
       db:
         condition: service_healthy
