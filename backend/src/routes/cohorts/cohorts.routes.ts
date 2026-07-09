@@ -7,6 +7,7 @@ import { authMiddleware, requireAdmin } from "../../middleware/auth.middleware.j
 import roleRouter from "./roles.routes.js"
 import fieldsRouter from "./fields.routes.js"
 import testTaskRouter from "./test-tasks.routes.js"
+import documentTemplatesRouter from "./document-templates.router.js"
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.use(authMiddleware);
 router.use(roleRouter)
 router.use(fieldsRouter)
 router.use(testTaskRouter)
+router.use(documentTemplatesRouter)
 
 /**
  * @openapi
@@ -92,8 +94,8 @@ router.get("/active", async (_req, res, next) => {
     const now = new Date()
     const cohorts = await prisma.cohort.findMany({
       where: {
-        applicationEnd: { lte: now },
-        applicationStart: { gte: now },
+        applicationStart: { lte: now },
+        applicationEnd: { gte: now },
       }
     });
 
