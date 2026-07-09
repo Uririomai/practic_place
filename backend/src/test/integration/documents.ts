@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
-import { prisma } from "../lib/prisma.js";
-import { storage } from "../lib/storage/index.js";
-import { cleanDb, stopDb } from "./integration.dbUtils.js";
-import { generateDocument } from "../lib/documents/generator.js";
+import { prisma } from "../../lib/prisma.js";
+import { storage } from "../../lib/storage/index.js";
+import { generateDocument } from "../../lib/documents/generator.js";
 
 function makeDocxTemplate(placeholders: string[]): Buffer {
   const zip = new PizZip();
@@ -37,13 +36,6 @@ function readDocxText(buf: Buffer): string {
   return zip.file("word/document.xml")!.asText();
 }
 
-beforeAll(async () => {
-  await cleanDb();
-});
-
-afterAll(async () => {
-  await stopDb();
-});
 
 describe("DocumentGenerator", () => {
   it("substitutes {{placeholders}} in docx template", async () => {
