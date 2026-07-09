@@ -359,6 +359,38 @@ Authorization: Bearer <admin_token>
 
 ---
 
+## Новые эндпоинты бэкенда (требуют адаптации фронта)
+
+### File Upload/Download
+
+Бэкенд поддерживает загрузку файлов через multer:
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| PUT | `/applications/:id/files/report` | Загрузка отчёта (multipart/form-data) |
+| GET | `/applications/:id/files/report` | Скачивание отчёта |
+| PATCH | `/applications/:id/files/report/status` | Одобрение/отклонение отчёта |
+
+### Document Templates
+
+Бэкенд поддерживает шаблоны документов:
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/cohorts/:id/document-templates` | Список шаблонов |
+| POST | `/cohorts/:id/document-templates` | Создание шаблона |
+| PATCH | `/cohorts/:id/document-templates/:id` | Обновление шаблона |
+| DELETE | `/cohorts/:id/document-templates/:id` | Удаление шаблона |
+
+### Document Generation
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/applications/:id/documents` | Список доступных документов |
+| GET | `/applications/:id/documents/:templateId` | Скачивание документа |
+
+---
+
 ## Статус
 
 - [ ] CORS middleware
@@ -370,3 +402,6 @@ Authorization: Bearer <admin_token>
 - [ ] `GET /applications/:id/test-status`
 - [ ] `GET /admin/documents?cohortIds=`
 - [ ] `GET /admin/applications?cohortIds=`
+- [ ] Адаптировать фронт для file upload/download
+- [ ] Адаптировать фронт для document templates
+- [ ] Адаптировать фронт для document generation

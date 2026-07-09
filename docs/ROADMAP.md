@@ -289,7 +289,15 @@ npm install -D @types/node @types/react
 - [ ] `GET /admin/applications?cohortIds=`
 - [ ] `GET /admin/documents?cohortIds=`
 
-**После выполнения:** Фронтенд готов работать с реальным бэкендом после добавления недостающих эндпоинтов
+### Задачи — Новые возможности бэкенда (адаптация фронта):
+- [ ] File Upload — `PUT /applications/:id/files/report` (multipart)
+- [ ] File Download — `GET /applications/:id/files/report`
+- [ ] File Review — `PATCH /applications/:id/files/report/status`
+- [ ] Document Templates — CRUD шаблонов документов
+- [ ] Document Generation — `GET /applications/:id/documents/:templateId`
+- [ ] Active Cohorts — `GET /cohorts/active` (доступные для подачи)
+
+**После выполнения:** Фронтенд готов работать с реальным бэкендом, включая загрузку файлов и генерацию документов
 
 ---
 
