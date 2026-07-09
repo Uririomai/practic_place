@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { app, request } from "./helpers.js";
+import { app, request } from "../integration.helpers.js";
 
 describe("GET /health", () => {
   it("returns ok without auth", async () => {
