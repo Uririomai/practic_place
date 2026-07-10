@@ -123,6 +123,8 @@ router.post("/:cohortId/fields", requireAdmin, async (req, res, next) => {
       label,
       options,
       order,
+      required,
+      placeholder,
     } = req.body;
     const type = req.body.type as $Enums.SurveyFieldType;
 
@@ -168,6 +170,8 @@ router.post("/:cohortId/fields", requireAdmin, async (req, res, next) => {
         type,
         options: options ?? null,
         order: typeof order === "number" ? order : 0,
+        required: required ?? false,
+        placeholder: placeholder ?? "",
       },
     });
 
@@ -343,6 +347,8 @@ router.patch("/:cohortId/fields/:id", requireAdmin, async (req, res, next) => {
       type,
       options,
       order,
+      required,
+      placeholder,
     } = req.body;
 
 
@@ -360,6 +366,12 @@ router.patch("/:cohortId/fields/:id", requireAdmin, async (req, res, next) => {
 
     if (order !== undefined)
       data.order = order;
+
+    if (required !== undefined)
+      data.required = required;
+
+    if (placeholder !== undefined)
+      data.placeholder = placeholder;
 
 
     const updated = await prisma.surveyField.update({
@@ -435,5 +447,169 @@ router.delete("/:cohortId/fields/:id", requireAdmin, async (req, res, next) => {
   }
 },
 );
+
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields/{id}:
+ *   get:
+ *     tags:
+ *       - Survey Fields
+ *     summary: Get single survey field
+ *     parameters:
+ *       - in: path
+ *         name: cohortId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Survey field
+ *       404:
+ *         description: Field not found
+ */
+router.get("/:cohortId/fields/:id", async (req, res, next) => {
+  try {
+    const field = await prisma.surveyField.findFirst({
+      where: {
+        id: req.params.id,
+        cohortId: req.params.cohortId,
+      },
+    });
+
+    if (!field) {
+      throw new AppError("FIELD_NOT_FOUND", 404, "Survey field not found");
+    }
+
+    res.json(field);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields/bulk:
+ *   post:
+ *     tags:
+ *       - Survey Fields
+ *     summary: Bulk create survey fields
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cohortId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fields
+ *             properties:
+ *               fields:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - label
+ *                     - type
+ *                   properties:
+ *                     label: { type: string }
+ *                     type: { type: string }
+ *                     options: { type: object, nullable: true }
+ *                     order: { type: integer }
+ *     responses:
+ *       201:
+ *         description: Fields created
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Cohort not found
+ */
+router.post("/:cohortId/fields/bulk", requireAdmin, async (req, res, next) => {
+  try {
+    const { fields } = req.body;
+
+    if (!Array.isArray(fields) || fields.length === 0) {
+      throw new AppError("FIELDS_REQUIRED", 400, "Non-empty fields array is required");
+    }
+
+    const cohort = await prisma.cohort.findUnique({
+      where: { id: req.params.cohortId },
+    });
+
+    if (!cohort) {
+      throw new AppError("COHORT_NOT_FOUND", 404, "Cohort not found");
+    }
+
+    const created = await prisma.$transaction(
+      fields.map((f: { label: string; type: $Enums.SurveyFieldType; options?: unknown; order?: number; required?: boolean; placeholder?: string }) =>
+        prisma.surveyField.create({
+          data: {
+            cohortId: req.params.cohortId,
+            label: f.label,
+            type: f.type,
+            options: f.options ?? null,
+            order: typeof f.order === "number" ? f.order : 0,
+            required: f.required ?? false,
+            placeholder: f.placeholder ?? "",
+          },
+        }),
+      ),
+    );
+
+    res.status(201).json(created);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /cohorts/{cohortId}/fields:
+ *   delete:
+ *     tags:
+ *       - Survey Fields
+ *     summary: Delete all survey fields for cohort
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cohortId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       204:
+ *         description: All fields deleted
+ *       404:
+ *         description: Cohort not found
+ */
+router.delete("/:cohortId/fields", requireAdmin, async (req, res, next) => {
+  try {
+    const cohort = await prisma.cohort.findUnique({
+      where: { id: req.params.cohortId },
+    });
+
+    if (!cohort) {
+      throw new AppError("COHORT_NOT_FOUND", 404, "Cohort not found");
+    }
+
+    await prisma.surveyField.deleteMany({
+      where: { cohortId: req.params.cohortId },
+    });
+
+    res.status(204).end();
+  } catch (e) {
+    next(e);
+  }
+});
 
 export default router;
