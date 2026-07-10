@@ -16,6 +16,7 @@ import "./integration/profile.js"
 import "./integration/roles.js"
 import "./integration/tasks.js"
 import "./integration/test-tasks.js"
+import "./integration/users.js"
 
 
 
