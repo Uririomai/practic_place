@@ -7,7 +7,7 @@ COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
 
-COPY . .
-
 ENV NODE_PATH=/node/node_modules
 RUN mv node_modules /node
+
+COPY . .
