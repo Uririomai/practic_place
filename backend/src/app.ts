@@ -156,7 +156,7 @@ const swaggerSpec = swaggerJsdoc({
       },
     },
   },
-  apis: ["./src/routes/*.ts"],
+  apis: ["./src/routes/**/*.ts"],
 });
 
 export function createApp() {
