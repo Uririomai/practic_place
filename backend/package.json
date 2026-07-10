@@ -4,10 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "docker compose -f compose.test.yaml up --build --abort-on-container-exit --exit-code-from test"
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+
+    "compose:prod:up": "docker compose up --build",
+    "compose:prod:down": "docker compose down",
+    "compose:dev:up": "docker compose -f compose.dev.yaml up --build",
+    "compose:dev:down": "docker compose -f compose.dev.yaml down",
+    "compose:test": "docker compose -f compose.test.yaml up --build --abort-on-container-exit --exit-code-from test"
   },
   "keywords": [],
   "author": "",
