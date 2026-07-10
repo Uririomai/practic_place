@@ -5,6 +5,7 @@ import authRouter from "./routes/auth.routes.js";
 import cohortRouter from "./routes/cohorts/cohorts.routes.js";
 import applicationRouter from "./routes/applications/application.routes.js";
 import profileRouter from "./routes/profile.routes.js";
+import usersRouter from "./routes/users.routes.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
 
 // ponytail: swagger-jsdoc reads @openapi JSDoc tags from route files
@@ -174,6 +175,7 @@ export function createApp() {
   app.use("/cohorts", cohortRouter);
   app.use("/applications", applicationRouter);
   app.use("/me", profileRouter);
+  app.use("/users", usersRouter);
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true });
