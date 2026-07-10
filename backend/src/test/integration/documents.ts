@@ -113,8 +113,8 @@ describe("DocumentGenerator", () => {
     const uri = await storage.save("test/empty-data.docx", templateBuf);
 
     const result = await generateDocument(uri, {});
-    const xml = readDocxText(result);
-    expect(xml).toContain("word/document.xml");
+    const zip = new PizZip(result);
+    expect(zip.file("word/document.xml")).toBeTruthy();
   });
 
   it("handles template without any placeholders", async () => {
