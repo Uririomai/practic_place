@@ -228,3 +228,179 @@ describe("DELETE /cohorts/:cohortId/fields/:id", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("GET /cohorts/:cohortId/fields/:id", () => {
+  it("returns single field for any authenticated user", async () => {
+    const { studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+    const field = await prisma.surveyField.create({
+      data: { cohortId: cohort.id, label: "Unique", type: "TEXT", order: 1 },
+    });
+
+    const res = await request(app)
+      .get(`/cohorts/${cohort.id}/fields/${field.id}`)
+      .set("Authorization", `Bearer ${studentToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(field.id);
+    expect(res.body.label).toBe("Unique");
+  });
+
+  it("returns 404 for missing field", async () => {
+    const { adminToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const res = await request(app)
+      .get(`/cohorts/${cohort.id}/fields/00000000-0000-0000-0000-000000000000`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 for field from different cohort", async () => {
+    const { adminToken } = await seedUsers();
+    const cohort = await seedCohort();
+    const other = await seedCohort("Other");
+    const field = await prisma.surveyField.create({
+      data: { cohortId: other.id, label: "Wrong", type: "TEXT", order: 1 },
+    });
+
+    const res = await request(app)
+      .get(`/cohorts/${cohort.id}/fields/${field.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /cohorts/:cohortId/fields/bulk", () => {
+  it("creates multiple fields as admin", async () => {
+    const { adminToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const res = await request(app)
+      .post(`/cohorts/${cohort.id}/fields/bulk`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        fields: [
+          { label: "Q1", type: "TEXT", order: 1 },
+          { label: "Q2", type: "TEXTAREA", order: 2 },
+        ],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].label).toBe("Q1");
+    expect(res.body[1].label).toBe("Q2");
+
+    const count = await prisma.surveyField.count({ where: { cohortId: cohort.id } });
+    expect(count).toBe(2);
+  });
+
+  it("forbids student", async () => {
+    const { studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const res = await request(app)
+      .post(`/cohorts/${cohort.id}/fields/bulk`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ fields: [{ label: "X", type: "TEXT" }] });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 for empty fields", async () => {
+    const { adminToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const res = await request(app)
+      .post(`/cohorts/${cohort.id}/fields/bulk`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ fields: [] });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when fields missing", async () => {
+    const { adminToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const res = await request(app)
+      .post(`/cohorts/${cohort.id}/fields/bulk`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 for missing cohort", async () => {
+    const { adminToken } = await seedUsers();
+
+    const res = await request(app)
+      .post("/cohorts/00000000-0000-0000-0000-000000000000/fields/bulk")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ fields: [{ label: "X", type: "TEXT" }] });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("DELETE /cohorts/:cohortId/fields", () => {
+  it("deletes all fields as admin", async () => {
+    const { adminToken } = await seedUsers();
+    const cohort = await seedCohort();
+    await prisma.surveyField.createMany({
+      data: [
+        { cohortId: cohort.id, label: "A", type: "TEXT", order: 1 },
+        { cohortId: cohort.id, label: "B", type: "TEXT", order: 2 },
+      ],
+    });
+
+    const res = await request(app)
+      .delete(`/cohorts/${cohort.id}/fields`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(204);
+
+    const count = await prisma.surveyField.count({ where: { cohortId: cohort.id } });
+    expect(count).toBe(0);
+  });
+
+  it("forbids student", async () => {
+    const { studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+    await prisma.surveyField.create({
+      data: { cohortId: cohort.id, label: "X", type: "TEXT", order: 1, required: false, placeholder: "some" },
+    });
+
+    const res = await request(app)
+      .delete(`/cohorts/${cohort.id}/fields`)
+      .set("Authorization", `Bearer ${studentToken}`);
+
+    expect(res.status).toBe(403);
+
+    const count = await prisma.surveyField.count({ where: { cohortId: cohort.id } });
+    expect(count).toBe(1);
+  });
+
+  it("returns 404 for missing cohort", async () => {
+    const { adminToken } = await seedUsers();
+
+    const res = await request(app)
+      .delete("/cohorts/00000000-0000-0000-0000-000000000000/fields")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("is idempotent on empty cohort", async () => {
+    const { adminToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const res = await request(app)
+      .delete(`/cohorts/${cohort.id}/fields`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(204);
+  });
+});
