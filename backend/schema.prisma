@@ -39,6 +39,9 @@ model User {
   activeCohortId String?
   activeCohort   Cohort? @relation("ActiveCohort", fields: [activeCohortId], references: [id])
 
+  // ponytail: JSONB для гибких полей профиля без миграций на каждое новое поле
+  profile Json?
+
   applications Application[]
 }
 

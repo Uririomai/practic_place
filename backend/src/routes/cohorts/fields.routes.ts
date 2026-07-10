@@ -3,7 +3,7 @@ import { Router } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { requireAdmin } from "../../middleware/auth.middleware.js";
 import { AppError } from "../../lib/errors.js";
-import type { $Enums } from "@prisma/client";
+import { Prisma, type $Enums } from "@prisma/client";
 
 const router = Router();
 
@@ -543,7 +543,7 @@ router.post("/:cohortId/fields/bulk", requireAdmin, async (req, res, next) => {
     }
 
     const cohort = await prisma.cohort.findUnique({
-      where: { id: req.params.cohortId },
+      where: { id: req.params.cohortId as string },
     });
 
     if (!cohort) {
@@ -554,10 +554,10 @@ router.post("/:cohortId/fields/bulk", requireAdmin, async (req, res, next) => {
       fields.map((f: { label: string; type: $Enums.SurveyFieldType; options?: unknown; order?: number; required?: boolean; placeholder?: string }) =>
         prisma.surveyField.create({
           data: {
-            cohortId: req.params.cohortId,
+            cohortId: req.params.cohortId as string,
             label: f.label,
             type: f.type,
-            options: f.options ?? null,
+            options: f.options ?? Prisma.DbNull,
             order: typeof f.order === "number" ? f.order : 0,
             required: f.required ?? false,
             placeholder: f.placeholder ?? "",
@@ -595,7 +595,7 @@ router.post("/:cohortId/fields/bulk", requireAdmin, async (req, res, next) => {
 router.delete("/:cohortId/fields", requireAdmin, async (req, res, next) => {
   try {
     const cohort = await prisma.cohort.findUnique({
-      where: { id: req.params.cohortId },
+      where: { id: req.params.cohortId as string },
     });
 
     if (!cohort) {
@@ -603,7 +603,7 @@ router.delete("/:cohortId/fields", requireAdmin, async (req, res, next) => {
     }
 
     await prisma.surveyField.deleteMany({
-      where: { cohortId: req.params.cohortId },
+      where: { cohortId: req.params.cohortId as string },
     });
 
     res.status(204).end();

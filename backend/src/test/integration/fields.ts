@@ -126,7 +126,7 @@ describe("PUT /cohorts/:cohortId/fields/order", () => {
 
   it("returns 400 when field belongs to different cohort", async () => {
     const { adminToken } = await seedUsers();
-    const cohort = await seedCohort();
+    await seedCohort();
     const otherCohort = await seedCohort("Other Cohort");
 
     const res = await request(app)

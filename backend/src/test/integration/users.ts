@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { app, request, prisma, seedUsers } from "../integration.helpers.js";
+import { app, request, prisma, seedUsers, seedCohort } from "../integration.helpers.js";
 
 // ===========================================================================
 // Users CRUD
@@ -147,5 +147,89 @@ describe("DELETE /users/:id", () => {
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ===========================================================================
+// Rich Profile
+// ===========================================================================
+describe("GET /users/:id/profile", () => {
+  it("returns rich profile with user, cohorts, roles", async () => {
+    const { studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+    const user = await prisma.user.findUnique({ where: { email: "student@test.com" } });
+
+    // cohorts/roles derived from user's applications — create one
+    await prisma.application.create({
+      data: { userId: user!.id, cohortId: cohort.id },
+    });
+
+    const res = await request(app)
+      .get(`/users/${user!.id}/profile`)
+      .set("Authorization", `Bearer ${studentToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.id).toBe(user!.id);
+    expect(res.body.user.email).toBe("student@test.com");
+    expect(res.body.user.profile).toEqual(null);
+
+    expect(Array.isArray(res.body.applications)).toBe(true);
+    expect(res.body.applications).toHaveLength(1);
+
+    expect(Array.isArray(res.body.cohorts)).toBe(true);
+    expect(res.body.cohorts).toHaveLength(1);
+    expect(res.body.cohorts[0].id).toBe(cohort.id);
+
+    expect(Array.isArray(res.body.roles)).toBe(true);
+    expect(Array.isArray(res.body.documents)).toBe(true);
+    expect(Array.isArray(res.body.tasks)).toBe(true);
+  });
+
+  it("returns 404 for missing user", async () => {
+    const { studentToken } = await seedUsers();
+
+    const res = await request(app)
+      .get("/users/00000000-0000-0000-0000-000000000000/profile")
+      .set("Authorization", `Bearer ${studentToken}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("includes application fields with test placeholder", async () => {
+    const { studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+    const user = await prisma.user.findUnique({ where: { email: "student@test.com" } });
+
+    await prisma.application.create({
+      data: { userId: user!.id, cohortId: cohort.id },
+    });
+
+    const res = await request(app)
+      .get(`/users/${user!.id}/profile`)
+      .set("Authorization", `Bearer ${studentToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0].userId).toBe(user!.id);
+    expect(res.body.applications[0].cohortId).toBe(cohort.id);
+    expect(res.body.applications[0].status).toBe("PENDING");
+    expect(res.body.applications[0].surveyData).toEqual({});
+    expect(res.body.applications[0].test).toEqual({ status: null, answer: null });
+  });
+
+  it("returns empty arrays for user with no data", async () => {
+    const { otherToken } = await seedUsers();
+    const user = await prisma.user.findUnique({ where: { email: "other@test.com" } });
+
+    const res = await request(app)
+      .get(`/users/${user!.id}/profile`)
+      .set("Authorization", `Bearer ${otherToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(0);
+    expect(res.body.documents).toHaveLength(0);
+    expect(res.body.tasks).toHaveLength(0);
+    expect(res.body.cohorts).toHaveLength(0);
+    expect(res.body.roles).toHaveLength(0);
   });
 });
