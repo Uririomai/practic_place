@@ -37,10 +37,11 @@ export async function seedUsers() {
   return { adminToken, studentToken, otherToken };
 }
 
-export async function seedCohort(name?: string) {
+export async function seedCohort(name?: string, description?: string) {
   const cohort = await prisma.cohort.create({
     data: {
       name: name ?? "Поток 2026",
+      description: description ?? "",
       applicationStart: new Date("2026-01-01"),
       applicationEnd: new Date("2026-12-31"),
       practiceStart: new Date("2026-06-01"),
