@@ -26,52 +26,10 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.get("/", async (req, res, next) => {
-  try {
-    const userId = req.user?.sub;
-
-    if (!userId) {
-      throw new AppError(
-        "UNAUTHORIZED",
-        401,
-        "Unauthorized",
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        createdAt: true,
-
-        activeCohortId: true,
-        activeCohort: {
-          select: {
-            id: true,
-            name: true,
-            practiceStart: true,
-            practiceEnd: true,
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      throw new AppError(
-        "USER_NOT_FOUND",
-        404,
-        "User not found",
-      );
-    }
-
-    res.json(user);
-  } catch (e) {
-    next(e);
-  }
+router.get("/", (req, res) => {
+  const userId = req.user?.sub;
+  if (!userId) return res.sendStatus(401);
+  res.redirect(301, `/users/${userId}/profile`);
 });
 
 
