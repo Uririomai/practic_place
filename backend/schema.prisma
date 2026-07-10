@@ -48,6 +48,7 @@ model User {
 model Cohort {
   id               String   @id @default(cuid())
   name             String   @unique
+  description      String   @default("")
   applicationStart DateTime
   applicationEnd   DateTime
   practiceStart    DateTime
@@ -106,12 +107,12 @@ model SurveyField {
   id       String @id @default(cuid())
   cohortId String
 
-  label   String
-  type    SurveyFieldType
-  options Json?
-  order   Int
-  required Boolean @default(false)
-  placeholder String @default("")
+  label       String
+  type        SurveyFieldType
+  options     Json?
+  order       Int
+  required    Boolean         @default(false)
+  placeholder String          @default("")
 
   cohort             Cohort              @relation(fields: [cohortId], references: [id])
   applicationAnswers ApplicationAnswer[]
