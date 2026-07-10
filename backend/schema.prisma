@@ -107,6 +107,8 @@ model SurveyField {
   type    SurveyFieldType
   options Json?
   order   Int
+  required Boolean @default(false)
+  placeholder String @default("")
 
   cohort             Cohort              @relation(fields: [cohortId], references: [id])
   applicationAnswers ApplicationAnswer[]
