@@ -336,18 +336,14 @@ router.patch("/:id", requireAdmin, async (req, res, next) => {
  *         description: Cohort deleted
  *       404:
  *         description: Cohort not found
- *       409:
- *         description: Cohort has applications
  */
 router.delete("/:id", requireAdmin, async (req, res, next) => {
   try {
     const id = req.params.id as string;
 
-
     const cohort = await prisma.cohort.findUnique({
       where: { id },
     });
-
 
     if (!cohort) {
       throw new AppError(
@@ -357,29 +353,11 @@ router.delete("/:id", requireAdmin, async (req, res, next) => {
       );
     }
 
-
-    const applicationsCount = await prisma.application.count({
-      where: {
-        cohortId: id,
-      },
-    });
-
-
-    if (applicationsCount > 0) {
-      throw new AppError(
-        "COHORT_HAS_APPLICATIONS",
-        409,
-        "Cannot delete cohort with applications",
-      );
-    }
-
-
     await prisma.cohort.delete({
       where: {
         id,
       },
     });
-
 
     res.status(204).end();
   } catch (e) {

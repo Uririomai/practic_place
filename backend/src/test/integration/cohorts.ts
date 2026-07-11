@@ -236,20 +236,4 @@ describe("DELETE /cohorts/:id", () => {
 
     expect(res.status).toBe(404);
   });
-
-  it("returns 409 when cohort has applications", async () => {
-    const { adminToken } = await seedUsers();
-    const cohort = await seedCohort();
-
-    const student = await prisma.user.findUnique({ where: { email: "student@test.com" } });
-    await prisma.application.create({
-      data: { userId: student!.id, cohortId: cohort.id },
-    });
-
-    const res = await request(app)
-      .delete(`/cohorts/${cohort.id}`)
-      .set("Authorization", `Bearer ${adminToken}`);
-
-    expect(res.status).toBe(409);
-  });
 });
