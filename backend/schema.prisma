@@ -35,9 +35,8 @@ model User {
   role           UserRole @default(STUDENT)
   createdAt      DateTime @default(now())
 
-  // Контекст для админа: над какой когортой он работает сейчас
   activeCohortId String?
-  activeCohort   Cohort? @relation("ActiveCohort", fields: [activeCohortId], references: [id])
+  activeCohort   Cohort? @relation("ActiveCohort", fields: [activeCohortId], references: [id], onDelete: SetNull)
 
   // ponytail: JSONB для гибких полей профиля без миграций на каждое новое поле
   profile Json?
@@ -69,7 +68,7 @@ model CohortRole {
   cohortId String
   name     String
 
-  cohort       Cohort        @relation(fields: [cohortId], references: [id])
+  cohort       Cohort        @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   applications Application[]
   testTasks    TestTask[]
 
@@ -92,8 +91,8 @@ model Application {
   createdAt     DateTime          @default(now())
 
   user   User        @relation(fields: [userId], references: [id])
-  cohort Cohort      @relation(fields: [cohortId], references: [id])
-  role   CohortRole? @relation(fields: [roleId], references: [id])
+  cohort Cohort      @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  role   CohortRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   answers   ApplicationAnswer[]
   docData   DocumentData?
@@ -114,7 +113,7 @@ model SurveyField {
   required    Boolean         @default(false)
   placeholder String          @default("")
 
-  cohort             Cohort              @relation(fields: [cohortId], references: [id])
+  cohort             Cohort              @relation(fields: [cohortId], references: [id], onDelete: Cascade)
   applicationAnswers ApplicationAnswer[]
 }
 
@@ -124,8 +123,8 @@ model ApplicationAnswer {
   fieldId       String
   value         String
 
-  application Application @relation(fields: [applicationId], references: [id])
-  field       SurveyField @relation(fields: [fieldId], references: [id])
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  field       SurveyField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
   @@unique([applicationId, fieldId])
 }
@@ -136,7 +135,7 @@ model DocumentData {
 
   data Json @default("{}")
 
-  application Application @relation(fields: [applicationId], references: [id])
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model DocumentTemplate {
@@ -150,7 +149,7 @@ model DocumentTemplate {
 
   requirements Json @default("{}")
 
-  cohort Cohort @relation(fields: [cohortId], references: [id])
+  cohort Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
 
   @@unique([cohortId, slug])
 }
@@ -167,7 +166,7 @@ model ApplicationFile {
   uploadedAt DateTime  @default(now())
   reviewedAt DateTime?
 
-  application Application @relation(fields: [applicationId], references: [id])
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   @@unique([applicationId, type])
 }
@@ -182,7 +181,7 @@ model TaskCard {
   artifactLink String?
   updatedAt    DateTime @updatedAt
 
-  application Application @relation(fields: [applicationId], references: [id])
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   @@unique([applicationId, date])
 }
@@ -195,6 +194,6 @@ model TestTask {
   content     String
   publishedAt DateTime?
 
-  cohort Cohort     @relation(fields: [cohortId], references: [id])
-  role   CohortRole @relation(fields: [roleId], references: [id])
+  cohort Cohort     @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  role   CohortRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
 }
