@@ -550,4 +550,66 @@ router.put("/:id/answers", async (req, res, next) => {
   }
 });
 
+/**
+ * @openapi
+ * /applications/{id}/test-answer:
+ *   put:
+ *     tags:
+ *       - Applications
+ *     summary: Submit test answer
+ *     description: Submits test task answer for the application.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               testAnswer:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Test answer saved
+ *       403:
+ *         description: Not application owner
+ *       404:
+ *         description: Application not found
+ */
+router.put("/:id/test-answer", async (req, res, next) => {
+  try {
+    const userId = req.user!.sub;
+    const applicationId = req.params.id as string;
+    const { testAnswer } = req.body as { testAnswer?: string };
+
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new AppError("APPLICATION_NOT_FOUND", 404, "Application not found");
+    }
+
+    if (application.userId !== userId) {
+      throw new AppError("FORBIDDEN", 403, "You cannot edit this application");
+    }
+
+    const updated = await prisma.application.update({
+      where: { id: applicationId },
+      data: { testAnswer },
+    });
+
+    res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+});
+
 export default router
