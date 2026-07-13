@@ -185,8 +185,14 @@ describe("GET /applications/:id", () => {
   });
 });
 
-describe("PATCH /applications/:id/review", () => {
-  it("approves application with roleId", async () => {
+/**
+ * @openapi
+ * /applications/{id}/review:
+ *   patch:
+ */
+
+describe("POST /applications/:id/assign-test", () => {
+  it("assigns test and sets TEST_ASSIGNED", async () => {
     const { adminToken, studentToken } = await seedUsers();
     const cohort = await seedCohort();
     const role = await prisma.cohortRole.create({
@@ -199,16 +205,157 @@ describe("PATCH /applications/:id/review", () => {
       .send({ cohortId: cohort.id });
 
     const res = await request(app)
-      .patch(`/applications/${created.body.id}/review`)
+      .post(`/applications/${created.body.id}/assign-test`)
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ status: "APPROVED", roleId: role.id });
+      .send({ roleId: role.id });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("TEST_ASSIGNED");
+    expect(res.body.roleId).toBe(role.id);
+  });
+
+  it("returns 403 for student", async () => {
+    const { studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const created = await request(app)
+      .post("/applications")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ cohortId: cohort.id });
+
+    const res = await request(app)
+      .post(`/applications/${created.body.id}/assign-test`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ roleId: "x" });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 if application not in PENDING", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+    const role = await prisma.cohortRole.create({
+      data: { cohortId: cohort.id, name: "Developer" },
+    });
+
+    const created = await request(app)
+      .post("/applications")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ cohortId: cohort.id });
+
+    // Assign once
+    await request(app)
+      .post(`/applications/${created.body.id}/assign-test`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ roleId: role.id });
+
+    // Try again
+    const res = await request(app)
+      .post(`/applications/${created.body.id}/assign-test`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ roleId: role.id });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("INVALID_STATUS");
+  });
+
+  it("returns 404 for missing role", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const created = await request(app)
+      .post("/applications")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ cohortId: cohort.id });
+
+    const res = await request(app)
+      .post(`/applications/${created.body.id}/assign-test`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ roleId: "00000000-0000-0000-0000-000000000000" });
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("PATCH /applications/:id/review", () => {
+  async function createAppWithTestSubmitted(adminToken: string, studentToken: string) {
+    const cohort = await seedCohort();
+    const role = await prisma.cohortRole.create({
+      data: { cohortId: cohort.id, name: "Developer" },
+    });
+
+    const created = await request(app)
+      .post("/applications")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ cohortId: cohort.id });
+
+    await request(app)
+      .post(`/applications/${created.body.id}/assign-test`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ roleId: role.id });
+
+    await request(app)
+      .put(`/applications/${created.body.id}/test-answer`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ testAnswer: "My answer" });
+
+    return { applicationId: created.body.id, role };
+  }
+
+  it("approves application with role from assign-test", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const { applicationId, role } = await createAppWithTestSubmitted(adminToken, studentToken);
+
+    const res = await request(app)
+      .patch(`/applications/${applicationId}/review`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "APPROVED" });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("APPROVED");
     expect(res.body.roleId).toBe(role.id);
   });
 
-  it("returns 400 when approving without roleId", async () => {
+  it("rejects application with comment", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const { applicationId } = await createAppWithTestSubmitted(adminToken, studentToken);
+
+    const res = await request(app)
+      .patch(`/applications/${applicationId}/review`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "REJECTED", reviewComment: "Not qualified" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("REJECTED");
+    expect(res.body.reviewComment).toBe("Not qualified");
+  });
+
+  it("returns 400 when rejecting without comment", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const { applicationId } = await createAppWithTestSubmitted(adminToken, studentToken);
+
+    const res = await request(app)
+      .patch(`/applications/${applicationId}/review`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "REJECTED" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("COMMENT_REQUIRED");
+  });
+
+  it("returns 400 for invalid status", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const { applicationId } = await createAppWithTestSubmitted(adminToken, studentToken);
+
+    const res = await request(app)
+      .patch(`/applications/${applicationId}/review`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "INVALID" });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 if application not in TEST_SUBMITTED", async () => {
     const { adminToken, studentToken } = await seedUsers();
     const cohort = await seedCohort();
 
@@ -223,65 +370,20 @@ describe("PATCH /applications/:id/review", () => {
       .send({ status: "APPROVED" });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe("ROLE_REQUIRED");
+    expect(res.body.error).toBe("INVALID_STATUS");
   });
 
-  it("rejects application with comment", async () => {
+  it("returns 403 for student", async () => {
     const { adminToken, studentToken } = await seedUsers();
-    const cohort = await seedCohort();
-
-    const created = await request(app)
-      .post("/applications")
-      .set("Authorization", `Bearer ${studentToken}`)
-      .send({ cohortId: cohort.id });
+    const { applicationId } = await createAppWithTestSubmitted(adminToken, studentToken);
 
     const res = await request(app)
-      .patch(`/applications/${created.body.id}/review`)
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({ status: "REJECTED", reviewComment: "Not qualified" });
-
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe("REJECTED");
-    expect(res.body.reviewComment).toBe("Not qualified");
-  });
-
-  it("returns 400 when rejecting without comment", async () => {
-    const { adminToken, studentToken } = await seedUsers();
-    const cohort = await seedCohort();
-
-    const created = await request(app)
-      .post("/applications")
+      .patch(`/applications/${applicationId}/review`)
       .set("Authorization", `Bearer ${studentToken}`)
-      .send({ cohortId: cohort.id });
+      .send({ status: "APPROVED" });
 
-    const res = await request(app)
-      .patch(`/applications/${created.body.id}/review`)
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({ status: "REJECTED" });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe("COMMENT_REQUIRED");
+    expect(res.status).toBe(403);
   });
-
-  it("returns 400 for invalid status", async () => {
-    const { adminToken, studentToken } = await seedUsers();
-    const cohort = await seedCohort();
-
-    const created = await request(app)
-      .post("/applications")
-      .set("Authorization", `Bearer ${studentToken}`)
-      .send({ cohortId: cohort.id });
-
-    const res = await request(app)
-      .patch(`/applications/${created.body.id}/review`)
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({ status: "INVALID" });
-
-    expect(res.status).toBe(400);
-  });
-
-  // ponytail: current code doesn't check role on review — anyone with the ID can review
-  // add when real auth is enforced on this route
 });
 
 describe("PUT /applications/:id/answers", () => {
