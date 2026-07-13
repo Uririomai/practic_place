@@ -77,6 +77,8 @@ model CohortRole {
 
 enum ApplicationStatus {
   PENDING
+  TEST_ASSIGNED
+  TEST_SUBMITTED
   APPROVED
   REJECTED
 }
