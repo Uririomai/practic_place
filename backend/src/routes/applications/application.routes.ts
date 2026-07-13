@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../lib/errors.js";
+import { requireAdmin } from "../../middleware/auth.middleware.js";
 
 import tasksRouter from "./tasks.routes.js"
 import filesRouter from "./files.routes.js"
@@ -332,7 +333,7 @@ router.get("/:id", async (req, res, next) => {
  *       404:
  *         description: Application not found
  */
-router.patch("/:id/review", async (req, res, next) => {
+router.patch("/:id/review", requireAdmin, async (req, res, next) => {
   try {
     const applicationId = req.params.id as string;
 
@@ -368,17 +369,6 @@ router.patch("/:id/review", async (req, res, next) => {
       );
     }
 
-    if (
-      status === "APPROVED" &&
-      !roleId
-    ) {
-      throw new AppError(
-        "ROLE_REQUIRED",
-        400,
-        "Role is required for approval",
-      );
-    }
-
     const application = await prisma.application.findUnique({
       where: {
         id: applicationId,
@@ -390,6 +380,25 @@ router.patch("/:id/review", async (req, res, next) => {
         "APPLICATION_NOT_FOUND",
         404,
         "Application not found",
+      );
+    }
+
+    if (application.status !== "TEST_SUBMITTED") {
+      throw new AppError(
+        "INVALID_STATUS",
+        400,
+        "Application must be in TEST_SUBMITTED status",
+      );
+    }
+
+    // ponytail: roleId already set at assign-test step, optional override here
+    const finalRoleId = roleId ?? application.roleId;
+
+    if (status === "APPROVED" && !finalRoleId) {
+      throw new AppError(
+        "ROLE_REQUIRED",
+        400,
+        "Role is required for approval — assign a test first",
       );
     }
 
@@ -603,7 +612,82 @@ router.put("/:id/test-answer", async (req, res, next) => {
 
     const updated = await prisma.application.update({
       where: { id: applicationId },
-      data: { testAnswer },
+      data: { testAnswer, status: "TEST_SUBMITTED" },
+    });
+
+    res.json(updated);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
+ * /applications/{id}/assign-test:
+ *   post:
+ *     tags:
+ *       - Applications
+ *     summary: Assign test task (admin)
+ *     description: Assigns a role and sets status to TEST_ASSIGNED. Admin only.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - roleId
+ *             properties:
+ *               roleId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Test assigned
+ *       400:
+ *         description: Invalid status transition
+ *       404:
+ *         description: Application not found
+ */
+router.post("/:id/assign-test", requireAdmin, async (req, res, next) => {
+  try {
+    const applicationId = req.params.id as string;
+    const { roleId } = req.body as { roleId?: string };
+
+    if (!roleId) {
+      throw new AppError("ROLE_REQUIRED", 400, "Role is required");
+    }
+
+    const application = await prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new AppError("APPLICATION_NOT_FOUND", 404, "Application not found");
+    }
+
+    if (application.status !== "PENDING") {
+      throw new AppError("INVALID_STATUS", 400, "Application must be in PENDING status");
+    }
+
+    const role = await prisma.cohortRole.findFirst({
+      where: { id: roleId, cohortId: application.cohortId },
+    });
+
+    if (!role) {
+      throw new AppError("ROLE_NOT_FOUND", 404, "Role not found in this cohort");
+    }
+
+    const updated = await prisma.application.update({
+      where: { id: applicationId },
+      data: { roleId, status: "TEST_ASSIGNED" },
     });
 
     res.json(updated);
