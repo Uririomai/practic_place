@@ -186,7 +186,29 @@ describe("GET /applications/:id", () => {
 });
 
 describe("PATCH /applications/:id/review", () => {
-  it("approves application", async () => {
+  it("approves application with roleId", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+    const role = await prisma.cohortRole.create({
+      data: { cohortId: cohort.id, name: "Developer" },
+    });
+
+    const created = await request(app)
+      .post("/applications")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ cohortId: cohort.id });
+
+    const res = await request(app)
+      .patch(`/applications/${created.body.id}/review`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "APPROVED", roleId: role.id });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("APPROVED");
+    expect(res.body.roleId).toBe(role.id);
+  });
+
+  it("returns 400 when approving without roleId", async () => {
     const { adminToken, studentToken } = await seedUsers();
     const cohort = await seedCohort();
 
@@ -200,8 +222,8 @@ describe("PATCH /applications/:id/review", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "APPROVED" });
 
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe("APPROVED");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("ROLE_REQUIRED");
   });
 
   it("rejects application with comment", async () => {

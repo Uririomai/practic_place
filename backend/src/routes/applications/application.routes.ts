@@ -339,9 +339,11 @@ router.patch("/:id/review", async (req, res, next) => {
     const {
       status,
       reviewComment,
+      roleId,
     } = req.body as {
       status?: "APPROVED" | "REJECTED";
       reviewComment?: string;
+      roleId?: string;
     };
 
     if (
@@ -366,6 +368,17 @@ router.patch("/:id/review", async (req, res, next) => {
       );
     }
 
+    if (
+      status === "APPROVED" &&
+      !roleId
+    ) {
+      throw new AppError(
+        "ROLE_REQUIRED",
+        400,
+        "Role is required for approval",
+      );
+    }
+
     const application = await prisma.application.findUnique({
       where: {
         id: applicationId,
@@ -380,6 +393,23 @@ router.patch("/:id/review", async (req, res, next) => {
       );
     }
 
+    if (roleId) {
+      const role = await prisma.cohortRole.findFirst({
+        where: {
+          id: roleId,
+          cohortId: application.cohortId,
+        },
+      });
+
+      if (!role) {
+        throw new AppError(
+          "ROLE_NOT_FOUND",
+          404,
+          "Role not found in this cohort",
+        );
+      }
+    }
+
     const updated = await prisma.application.update({
       where: {
         id: applicationId,
@@ -387,6 +417,7 @@ router.patch("/:id/review", async (req, res, next) => {
       data: {
         status,
         reviewComment: reviewComment ?? null,
+        ...(roleId !== undefined && { roleId }),
       },
     });
 
