@@ -383,11 +383,12 @@ router.patch("/:id/review", requireAdmin, async (req, res, next) => {
       );
     }
 
-    if (application.status !== "TEST_SUBMITTED") {
+    // ponytail: allow rejection from any status, approval only from TEST_SUBMITTED
+    if (status === "APPROVED" && application.status !== "TEST_SUBMITTED") {
       throw new AppError(
         "INVALID_STATUS",
         400,
-        "Application must be in TEST_SUBMITTED status",
+        "Application must be in TEST_SUBMITTED status for approval",
       );
     }
 

@@ -355,7 +355,7 @@ describe("PATCH /applications/:id/review", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 if application not in TEST_SUBMITTED", async () => {
+  it("returns 400 when approving from PENDING", async () => {
     const { adminToken, studentToken } = await seedUsers();
     const cohort = await seedCohort();
 
@@ -371,6 +371,25 @@ describe("PATCH /applications/:id/review", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("INVALID_STATUS");
+  });
+
+  it("rejects application from PENDING without assign-test", async () => {
+    const { adminToken, studentToken } = await seedUsers();
+    const cohort = await seedCohort();
+
+    const created = await request(app)
+      .post("/applications")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ cohortId: cohort.id });
+
+    const res = await request(app)
+      .patch(`/applications/${created.body.id}/review`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "REJECTED", reviewComment: "Not qualified based on survey" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("REJECTED");
+    expect(res.body.reviewComment).toBe("Not qualified based on survey");
   });
 
   it("returns 403 for student", async () => {
