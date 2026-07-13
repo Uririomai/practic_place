@@ -9,6 +9,184 @@ router.use(authMiddleware);
 
 /**
  * @openapi
+ * /users:
+ *   get:
+ *     tags: [Users]
+ *     summary: List all users (admin)
+ *     description: Returns all users with their applications and roles. Admin only.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Users list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       role:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                       profile:
+ *                         type: object
+ *                       applications:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                             cohortId:
+ *                               type: string
+ *                             roleId:
+ *                               type: string
+ *                               nullable: true
+ *                             status:
+ *                               type: string
+ *                             testAnswer:
+ *                               type: string
+ *                               nullable: true
+ *                             createdAt:
+ *                               type: string
+ *                             cohort:
+ *                               type: object
+ *                               properties:
+ *                                 id:
+ *                                   type: string
+ *                                 name:
+ *                                   type: string
+ *                             role:
+ *                               type: object
+ *                               nullable: true
+ *                               properties:
+ *                                 id:
+ *                                   type: string
+ *                                 cohortId:
+ *                                   type: string
+ *                                 name:
+ *                                   type: string
+ *                 cohorts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       applicationStart:
+ *                         type: string
+ *                       applicationEnd:
+ *                         type: string
+ *                       practiceStart:
+ *                         type: string
+ *                       practiceEnd:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                 roles:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       cohortId:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ */
+router.get("/", requireAdmin, async (_req, res, next) => {
+  try {
+    const dbUsers = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        profile: true,
+        applications: {
+          select: {
+            id: true,
+            cohortId: true,
+            roleId: true,
+            status: true,
+            testAnswer: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const dbCohorts = await prisma.cohort.findMany({
+      select: {
+        id: true,
+        name: true,
+        applicationStart: true,
+        applicationEnd: true,
+        practiceStart: true,
+        practiceEnd: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const dbRoles = await prisma.cohortRole.findMany({
+      select: { id: true, cohortId: true, name: true },
+      orderBy: { name: "asc" },
+    });
+
+    const users = dbUsers.map((u) => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      createdAt: u.createdAt,
+      profile: u.profile,
+      applications: u.applications.map((a) => ({
+        id: a.id,
+        cohortId: a.cohortId,
+        roleId: a.roleId,
+        status: a.status,
+        testAnswer: a.testAnswer,
+        createdAt: a.createdAt,
+      })),
+    }));
+
+    const cohorts = dbCohorts.map((c) => ({
+      id: c.id,
+      name: c.name,
+      applicationStart: c.applicationStart,
+      applicationEnd: c.applicationEnd,
+      practiceStart: c.practiceStart,
+      practiceEnd: c.practiceEnd,
+      createdAt: c.createdAt,
+    }));
+
+    const roles = dbRoles.map((r) => ({
+      id: r.id,
+      cohortId: r.cohortId,
+      name: r.name,
+    }));
+
+    res.json({ users, cohorts, roles });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * @openapi
  * /users/{id}:
  *   get:
  *     tags: [Users]
