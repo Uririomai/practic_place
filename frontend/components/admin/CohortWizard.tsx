@@ -66,6 +66,7 @@ export function CohortWizard({ open, onClose, onCreated }: CohortWizardProps) {
   const [skippedSteps, setSkippedSteps] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [hintsOpen, setHintsOpen] = useState(false);
   const [createdState, setCreatedState] = useState<"idle" | "creating" | "success" | "error">("idle");
   const [createdError, setCreatedError] = useState("");
 
@@ -142,20 +143,24 @@ export function CohortWizard({ open, onClose, onCreated }: CohortWizardProps) {
       setSurveyFields(getInitialSurveyFields(null, roles));
     }
     setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+    setHintsOpen(false);
   };
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
+    setHintsOpen(false);
   };
 
   const handleSkip = () => {
     setSkippedSteps((prev) => new Set([...prev, currentStep]));
     setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+    setHintsOpen(false);
   };
 
   const handleStepClick = (step: number) => {
     if (step < currentStep || completedSteps.has(step)) {
       setCurrentStep(step);
+      setHintsOpen(false);
     }
   };
 
@@ -293,7 +298,7 @@ export function CohortWizard({ open, onClose, onCreated }: CohortWizardProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`max-h-[90vh] overflow-y-auto transition-all duration-300 ${hintsOpen ? "max-w-[1100px]" : "max-w-3xl"}`}>
         <DialogHeader>
           <DialogTitle>Создание когорты</DialogTitle>
         </DialogHeader>
@@ -373,7 +378,12 @@ export function CohortWizard({ open, onClose, onCreated }: CohortWizardProps) {
               />
             )}
             {currentStep === 4 && (
-              <StepDocuments documents={documents} onChange={setDocuments} />
+              <StepDocuments
+                documents={documents}
+                onChange={setDocuments}
+                hintsOpen={hintsOpen}
+                onToggleHints={() => setHintsOpen(!hintsOpen)}
+              />
             )}
           </div>
 
