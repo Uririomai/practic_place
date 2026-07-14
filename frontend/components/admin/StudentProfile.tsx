@@ -172,7 +172,6 @@ export function StudentProfile({ userId }: StudentProfileProps) {
       <StudentStats
         tasks={filteredTasks}
         allTasksCount={profile.tasks.length}
-        documents={filteredDocs}
         cohorts={profile.cohorts}
       />
 

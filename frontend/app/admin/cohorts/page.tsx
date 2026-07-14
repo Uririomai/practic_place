@@ -62,6 +62,7 @@ export default function AdminCohortsPage() {
   const [editorMode, setEditorMode] = useState<EditorMode>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
+  const [hintsOpen, setHintsOpen] = useState(false);
   const [surveyFields, setSurveyFields] = useState<SurveyField[]>([]);
   const [cohortRoles, setCohortRoles] = useState<CohortRole[]>([]);
   const [docTemplates, setDocTemplates] = useState<{ id: string; name: string; slug: string }[]>([]);
@@ -359,8 +360,8 @@ export default function AdminCohortsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editorMode === "documents"} onOpenChange={() => setEditorMode(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <Dialog open={editorMode === "documents"} onOpenChange={() => { setEditorMode(null); setHintsOpen(false); }}>
+        <DialogContent className={`max-h-[85vh] overflow-y-auto transition-all duration-300 ${hintsOpen ? "max-w-[1100px]" : "max-w-2xl"}`}>
           <DialogHeader>
             <DialogTitle>
               Шаблоны документов: {selectedCohort?.name}
@@ -370,8 +371,10 @@ export default function AdminCohortsPage() {
             <DocumentTemplatesEditor
               cohortId={selectedCohort.id}
               initialTemplates={docTemplates}
-              onSaved={() => setEditorMode(null)}
-              onCancel={() => { setEditorMode(null); setSelectedCohort(null); }}
+              onSaved={() => { setEditorMode(null); setHintsOpen(false); }}
+              onCancel={() => { setEditorMode(null); setSelectedCohort(null); setHintsOpen(false); }}
+              hintsOpen={hintsOpen}
+              onToggleHints={() => setHintsOpen(!hintsOpen)}
             />
           )}
         </DialogContent>
