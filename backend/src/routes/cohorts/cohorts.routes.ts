@@ -8,6 +8,7 @@ import roleRouter from "./roles.routes.js"
 import fieldsRouter from "./fields.routes.js"
 import testTaskRouter from "./test-tasks.routes.js"
 import documentTemplatesRouter from "./document-templates.router.js"
+import studentsRouter from "./students.routes.js"
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.use(roleRouter)
 router.use(fieldsRouter)
 router.use(testTaskRouter)
 router.use(documentTemplatesRouter)
+router.use(studentsRouter)
 
 /**
  * @openapi
