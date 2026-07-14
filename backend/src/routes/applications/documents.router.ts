@@ -280,7 +280,16 @@ router.get(
       // ponytail: merge user.profile as base, docData overrides
       const userData = (application.user.profile ?? {}) as Record<string, unknown>;
       const docDataObj = (docData?.data ?? {}) as Record<string, unknown>;
-      const mergedData = { ...userData, ...docDataObj };
+      // ponytail: resolved cohort fields, add more here when needed
+      const cohort_ = await prisma.cohort.findUnique({
+        where: { id: application.cohortId },
+        select: { practiceStart: true, practiceEnd: true },
+      });
+      const cohortFields: Record<string, string> = {
+        practice_start: cohort_!.practiceStart.toISOString().split("T")[0] ?? "",
+        practice_end: cohort_!.practiceEnd.toISOString().split("T")[0] ?? "",
+      };
+      const mergedData = { ...userData, ...docDataObj, ...cohortFields };
 
       const file = await generateDocument(
         template.uri,
