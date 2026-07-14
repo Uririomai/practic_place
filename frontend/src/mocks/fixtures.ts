@@ -90,6 +90,7 @@ export const mockSurveyFields: SurveyField[] = [
 export const mockTestTask: TestTask = {
   id: "test-task-1",
   cohortId: "test-cohort-id",
+  roleId: "role-1",
   content: `Опишите основные этапы разработки веб-приложения с использованием React и Node.js.
 
 Какие инструменты и подходы вы бы использовали для организации студенческой практики в университете?`,
@@ -106,6 +107,7 @@ export const mockApplications: ApplicationWithTest[] = [
     id: "app-1",
     userId: "user-1",
     cohortId: "test-cohort-id",
+    roleId: "role-1",
     status: "approved",
     surveyData: {
       fio: "Иванов Иван Иванович",
@@ -259,6 +261,7 @@ export const mockAdminApplications: AdminApplication[] = [
     id: "app-1",
     userId: "user-1",
     cohortId: "test-cohort-id",
+    roleId: "role-1",
     status: "approved",
     surveyData: {
       fio: "Иванов Иван Иванович",

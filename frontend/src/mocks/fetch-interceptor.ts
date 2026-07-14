@@ -67,7 +67,7 @@ const routePatterns: Array<{
   },
   {
     method: "GET",
-    pattern: /^\/api\/auth\/me$/,
+    pattern: /^\/api\/me$/,
     handler: (_match, request) => {
       const authHeader = request.headers.get("Authorization");
       const token = authHeader?.replace("Bearer ", "");
@@ -118,16 +118,35 @@ const routePatterns: Array<{
       return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
     },
   },
+  {
+    method: "DELETE",
+    pattern: /^\/api\/cohorts\/([^/]+)\/fields\/([^/]+)$/,
+    handler: (match) => {
+      const fieldId = match[2];
+      const index = surveyFields.findIndex((f) => f.id === fieldId);
+      if (index !== -1) {
+        surveyFields.splice(index, 1);
+        return new Response(null, { status: 204 });
+      }
+      return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    },
+  },
 
   // ===== Cohort Survey Fields =====
   {
+    method: "GET",
+    pattern: /^\/api\/cohorts\/([^/]+)\/fields$/,
+    handler: () => Response.json(surveyFields),
+  },
+  {
     method: "POST",
-    pattern: /^\/api\/cohorts\/([^/]+)\/survey-fields$/,
+    pattern: /^\/api\/cohorts\/([^/]+)\/fields$/,
     handler: async (match, request) => {
       const cohortId = match[1];
-      const body = (await request.json()) as { fields: Omit<SurveyField, 'id'>[] };
-      surveyFields = body.fields.map((f, i) => ({ ...f, id: `${cohortId}-field-${i}`, cohortId }));
-      return Response.json(surveyFields);
+      const body = (await request.json()) as Omit<SurveyField, 'id'>;
+      const newField: SurveyField = { ...body, id: `${cohortId}-field-${Date.now()}` };
+      surveyFields.push(newField);
+      return Response.json(newField);
     },
   },
 
@@ -176,10 +195,11 @@ const routePatterns: Array<{
     pattern: /^\/api\/cohorts\/([^/]+)\/test-tasks$/,
     handler: async (match, request) => {
       const cohortId = match[1];
-      const body = (await request.json()) as { content: string };
+      const body = (await request.json()) as { roleId: string; content: string };
       return Response.json({
         id: "test-task-" + cohortId,
         cohortId,
+        roleId: body.roleId,
         content: body.content,
         publishedAt: new Date().toISOString(),
       });
@@ -279,6 +299,11 @@ const routePatterns: Array<{
   },
   {
     method: "GET",
+    pattern: /^\/api\/cohorts\/active$/,
+    handler: () => Response.json(cohorts),
+  },
+  {
+    method: "GET",
     pattern: /^\/api\/cohorts\/([^/]+)$/,
     handler: (match) => {
       const cohortId = match[1];
@@ -298,8 +323,91 @@ const routePatterns: Array<{
   {
     method: "POST",
     pattern: /^\/api\/applications$/,
-    handler: () =>
-      Response.json({ id: "app-" + Date.now(), status: "pending", createdAt: new Date().toISOString() }),
+    handler: () => {
+      const id = "app-" + Date.now();
+      const newApp = {
+        id,
+        userId: "user-1",
+        cohortId: "test-cohort-id",
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      };
+      adminApplications.push(newApp as AdminApplication);
+      return Response.json(newApp);
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/applications$/,
+    handler: () => Response.json(adminApplications),
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/applications\/([^/]+)$/,
+    handler: (match) => {
+      const id = match[1];
+      const app = adminApplications.find((a) => a.id === id);
+      if (!app) {
+        return new Response(JSON.stringify({ message: "Not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+      }
+      // Возвращаем заявку с ответами анкеты
+      const labels: Record<string, string> = {
+        fio: "ФИО", group: "Группа", course: "Курс",
+        desired_role: "Желаемая роль", tech_stack: "Технологии",
+      };
+      return Response.json({
+        ...app,
+        answers: app.surveyData
+          ? Object.entries(app.surveyData).map(([fieldId, value]) => ({
+              fieldId,
+              value,
+              field: { id: fieldId, label: labels[fieldId] || fieldId, type: "text" },
+            }))
+          : [],
+      });
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/applications\/([^/]+)\/answers$/,
+    handler: (match) => {
+      const id = match[1];
+      // Ищем в student applications
+      const app = mockApplications.find((a) => a.id === id);
+      if (!app || !app.surveyData) return Response.json([]);
+      return Response.json(
+        Object.entries(app.surveyData).map(([fieldId, value]) => ({
+          fieldId,
+          value,
+        }))
+      );
+    },
+  },
+  {
+    method: "PUT",
+    pattern: /^\/api\/applications\/([^/]+)\/answers$/,
+    handler: async (match, request) => {
+      const id = match[1];
+      const body = (await request.json()) as { answers: { fieldId: string; value: string }[] };
+      const app = adminApplications.find((a) => a.id === id);
+      if (app) {
+        // Конвертируем answers в surveyData
+        const surveyData: Record<string, string> = {};
+        for (const answer of body.answers) {
+          surveyData[answer.fieldId] = answer.value;
+        }
+        app.surveyData = { ...app.surveyData, ...surveyData };
+      }
+      return Response.json(body.answers);
+    },
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/applications\/([^/]+)\/tasks$/,
+    handler: (match) => {
+      const appId = match[1];
+      return Response.json(mockTaskCards.filter(t => t.applicationId === appId));
+    },
   },
   {
     method: "GET",
