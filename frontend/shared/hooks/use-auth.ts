@@ -13,6 +13,32 @@ function decodeTokenUserId(token: string): string | null {
   }
 }
 
+/** Загрузить полные данные пользователя: activeCohortId из /me, профиль из /users/:id/profile */
+async function loadFullUser(token: string): Promise<User | null> {
+  const userId = decodeTokenUserId(token);
+  const role = decodeTokenRole(token);
+  if (!userId) return null;
+
+  // activeCohortId — из GET /me
+  const me = await api.users.getMe();
+  const activeCohortId = me.activeCohortId;
+
+  // Профиль, заявки, когорты — из GET /users/:id/profile
+  const data = await api.users.getProfile(userId);
+  const approvedApp = data.applications?.find(
+    (a: { status: string }) => a.status?.toLowerCase() === 'approved'
+  );
+  const activeRole = approvedApp?.role;
+
+  return {
+    ...data.user,
+    role,
+    activeCohortId,
+    activeRole,
+    cohorts: data.cohorts,
+  } as User;
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -20,7 +46,6 @@ export function useAuth() {
   const mockReady = useMockReady();
 
   useEffect(() => {
-    // Ждём загрузки мока перед запросами
     if (!mockReady) return;
 
     const stored = localStorage.getItem('token');
@@ -28,7 +53,7 @@ export function useAuth() {
       setToken(stored);
       apiClient.setToken(stored);
 
-      // Мок-токены — возвращаем мок-пользователя
+      // Мок-токены
       if (stored === 'mock-jwt-token-admin') {
         setUser({ id: 'admin-1', email: 'admin@example.com', fio: 'Петров Пётр Петрович', role: 'admin', createdAt: '2024-01-01' });
         setLoading(false);
@@ -40,39 +65,19 @@ export function useAuth() {
         return;
       }
 
-      // Реальный JWT — загружаем профиль через GET /users/:id/profile
-      const userId = decodeTokenUserId(stored);
-      const role = decodeTokenRole(stored);
-
-      if (userId) {
-        // Загружаем профиль (GET /users/:id/profile) — activeCohortId уже внутри user
-        api.users.getProfile(userId)
-          .then((data) => {
-            // Определяем активную когорту: первая заявка со статусом APPROVED
-            const approvedApp = data.applications?.find(
-              (a: { status: string }) => a.status?.toLowerCase() === 'approved'
-            );
-            const activeCohortId = data.user.activeCohortId || approvedApp?.cohortId;
-            // Находим роль из заявки
-            const activeRole = approvedApp?.role;
-            setUser({
-              ...data.user,
-              role,
-              activeCohortId,
-              activeRole,
-              cohorts: data.cohorts,
-            });
-          })
-          .catch(() => {
-            localStorage.removeItem('token');
-            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-            setToken(null);
-            apiClient.clearToken();
-          })
-          .finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
+      // Реальный JWT
+      loadFullUser(stored)
+        .then((fullUser) => {
+          if (fullUser) setUser(fullUser);
+        })
+        .catch((err) => {
+          console.error('[useAuth] Ошибка загрузки профиля:', err);
+          localStorage.removeItem('token');
+          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          setToken(null);
+          apiClient.clearToken();
+        })
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
@@ -80,16 +85,21 @@ export function useAuth() {
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await api.auth.login({ email, password });
-    // Сохраняем и в localStorage, и в cookie (middleware проверяет cookie)
     localStorage.setItem('token', response.token);
     document.cookie = `token=${response.token}; path=/; SameSite=Lax`;
     apiClient.setToken(response.token);
     setToken(response.token);
-    // Бэк не возвращает role в user — декодируем из JWT
-    const role = decodeTokenRole(response.token);
-    const userWithRole = { ...response.user, role };
-    setUser(userWithRole);
-    return { ...response, user: userWithRole };
+
+    try {
+      const fullUser = await loadFullUser(response.token);
+      if (fullUser) setUser(fullUser);
+      return { token: response.token, user: fullUser };
+    } catch {
+      const role = decodeTokenRole(response.token);
+      const fallback = { ...response.user, role } as User;
+      setUser(fallback);
+      return { token: response.token, user: fallback };
+    }
   }, []);
 
   const register = useCallback(async (email: string, password: string) => {
@@ -98,11 +108,17 @@ export function useAuth() {
     document.cookie = `token=${response.token}; path=/; SameSite=Lax`;
     apiClient.setToken(response.token);
     setToken(response.token);
-    // Бэк не возвращает role в user — декодируем из JWT
-    const role = decodeTokenRole(response.token);
-    const userWithRole = { ...response.user, role };
-    setUser(userWithRole);
-    return { ...response, user: userWithRole };
+
+    try {
+      const fullUser = await loadFullUser(response.token);
+      if (fullUser) setUser(fullUser);
+      return { token: response.token, user: fullUser };
+    } catch {
+      const role = decodeTokenRole(response.token);
+      const fallback = { ...response.user, role } as User;
+      setUser(fallback);
+      return { token: response.token, user: fallback };
+    }
   }, []);
 
   const logout = useCallback(() => {
