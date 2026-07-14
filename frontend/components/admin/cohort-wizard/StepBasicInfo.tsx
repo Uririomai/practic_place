@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -12,30 +12,42 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Cohort } from "@/shared/api/types";
-import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
-interface CohortFormProps {
-  cohort?: Cohort | null;
-  onSave: (data: Omit<Cohort, 'id'>) => Promise<void>;
-  onCancel: () => void;
+export interface BasicInfoData {
+  name: string;
+  applicationStart: string;
+  applicationEnd: string;
+  practiceStart: string;
+  practiceEnd: string;
+  description?: string;
 }
 
-const cohortSchema = z.object({
+interface StepBasicInfoProps {
+  data: BasicInfoData;
+  onChange: (data: BasicInfoData) => void;
+  onValidChange: (valid: boolean) => void;
+}
+
+const schema = z.object({
   name: z.string().min(1, "Название обязательно"),
   applicationStart: z.string().min(1, "Дата начала приёма обязательна"),
   applicationEnd: z.string().min(1, "Дата окончания приёма обязательна"),
   practiceStart: z.string().min(1, "Дата начала практики обязательна"),
   practiceEnd: z.string().min(1, "Дата окончания практики обязательна"),
+  description: z.string().optional(),
 }).refine(
-  (data) => data.applicationEnd < data.practiceStart,
+  (data) => !data.applicationStart || !data.applicationEnd || data.applicationStart < data.applicationEnd,
+  { message: "Начало приёма должно быть раньше окончания", path: ["applicationEnd"] }
+).refine(
+  (data) => !data.applicationEnd || !data.practiceStart || data.applicationEnd < data.practiceStart,
   { message: "Приём заявок должен заканчиваться до начала практики", path: ["applicationEnd"] }
 ).refine(
-  (data) => data.practiceStart < data.practiceEnd,
-  { message: "Практика должна заканчиваться позже начала", path: ["practiceEnd"] }
+  (data) => !data.practiceStart || !data.practiceEnd || data.practiceStart < data.practiceEnd,
+  { message: "Начало практики должно быть раньше окончания", path: ["practiceEnd"] }
 );
 
-type CohortFormData = z.infer<typeof cohortSchema>;
+type FormData = z.infer<typeof schema>;
 
 /** Строка YYYY-MM-DD или ISO → Date (без timezonа) */
 function parseDate(str: string): Date | undefined {
@@ -105,47 +117,31 @@ function DateField({ label, value, onChange, disabledBefore, disabledAfter, erro
   );
 }
 
-export function CohortForm({ cohort, onSave, onCancel }: CohortFormProps) {
-  const [saving, setSaving] = useState(false);
-
-  const form = useForm<CohortFormData>({
-    resolver: zodResolver(cohortSchema),
-    defaultValues: {
-      name: cohort?.name || "",
-      applicationStart: cohort?.applicationStart || "",
-      applicationEnd: cohort?.applicationEnd || "",
-      practiceStart: cohort?.practiceStart || "",
-      practiceEnd: cohort?.practiceEnd || "",
-    },
+export function StepBasicInfo({ data, onChange, onValidChange }: StepBasicInfoProps) {
+  const form = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: data,
+    mode: "onChange",
   });
 
   useEffect(() => {
-    if (cohort) {
-      form.reset({
-        name: cohort.name,
-        applicationStart: cohort.applicationStart,
-        applicationEnd: cohort.applicationEnd,
-        practiceStart: cohort.practiceStart,
-        practiceEnd: cohort.practiceEnd,
-      });
-    }
-  }, [cohort, form]);
+    const subscription = form.watch((value) => {
+      onChange(value as BasicInfoData);
+      onValidChange(form.formState.isValid);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, onChange, onValidChange]);
 
-  const onSubmit = async (data: CohortFormData) => {
-    setSaving(true);
-    try {
-      await onSave(data);
-    } finally {
-      setSaving(false);
-    }
-  };
+  useEffect(() => {
+    onValidChange(form.formState.isValid);
+  }, [form.formState.isValid, onValidChange]);
 
   const appEnd = form.watch("applicationEnd");
   const practiceStart = form.watch("practiceStart");
   const practiceEnd = form.watch("practiceEnd");
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <div className="space-y-4">
       <FormItem>
         <FormLabel required>Название когорты</FormLabel>
         <Input {...form.register("name")} placeholder="Летняя практика 2026" />
@@ -190,14 +186,14 @@ export function CohortForm({ cohort, onSave, onCancel }: CohortFormProps) {
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Отмена
-        </Button>
-        <Button type="submit" disabled={saving}>
-          {saving ? "Сохранение..." : cohort ? "Сохранить" : "Создать"}
-        </Button>
-      </div>
-    </form>
+      <FormItem>
+        <FormLabel>Описание практики</FormLabel>
+        <Textarea
+          {...form.register("description")}
+          placeholder="Краткое описание практики (необязательно)"
+          rows={3}
+        />
+      </FormItem>
+    </div>
   );
 }

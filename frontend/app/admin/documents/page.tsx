@@ -1,25 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CohortFilter } from "@/components/admin/CohortFilter";
 import { DocumentsTable } from "@/components/admin/DocumentsTable";
 import { api } from "@/shared/api/client";
-import { Cohort, AdminDocumentData, SaveReviewDto } from "@/shared/api/types";
+import { Cohort, Application, ApplicationFile } from "@/shared/api/types";
 
 export default function AdminDocumentsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
-  const [documents, setDocuments] = useState<AdminDocumentData[]>([]);
-  const [selectedCohortIds, setSelectedCohortIds] = useState<string[]>([]);
+  const [applications, setApplications] = useState<(Application & { files?: ApplicationFile[] })[]>([]);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
+
+  const loadApplications = async () => {
+    try {
+      const appsData = await api.admin.getApplicationsWithFiles().catch((e) => {
+        console.error("Ошибка загрузки заявок:", e);
+        return [] as (Application & { files?: ApplicationFile[] })[];
+      });
+      setApplications(appsData);
+    } catch {}
+  };
 
   const loadData = async () => {
     try {
-      const [cohortsData, docsData] = await Promise.all([
-        api.cohorts.list(),
-        api.admin.getDocuments(),
-      ]);
+      const cohortsData = await api.cohorts.list().catch(() => [] as Cohort[]);
       setCohorts(cohortsData);
-      setDocuments(docsData);
+      await loadApplications();
     } finally {
       setLoading(false);
     }
@@ -29,24 +37,25 @@ export default function AdminDocumentsPage() {
     loadData();
   }, []);
 
-  const filteredDocs = selectedCohortIds.length > 0
-    ? documents.filter((doc) => selectedCohortIds.includes(doc.cohortId))
-    : documents;
+  // Автоматически выбираем первую когорту при загрузке
+  useEffect(() => {
+    if (!loading && cohorts.length > 0 && !selectedCohortId) {
+      handleCohortChange(cohorts[0].id);
+    }
+  }, [loading, cohorts]);
 
-  const handleSaveReview = async (documentId: string, data: SaveReviewDto) => {
-    await api.admin.saveReview(documentId, data);
-    await loadData();
-  };
-
-  const handleApproveReport = async (documentId: string) => {
-    await api.admin.approveReport(documentId);
-    await loadData();
-  };
-
-  const handleRejectReport = async (documentId: string) => {
-    await api.admin.rejectReport(documentId);
-    await loadData();
-  };
+  const handleCohortChange = useCallback(async (cohortId: string) => {
+    setSelectedCohortId(cohortId);
+    setSwitching(true);
+    try {
+      await api.auth.updateActiveCohort(cohortId);
+      await loadApplications();
+    } catch (e) {
+      console.error("Ошибка смены когорты:", e);
+    } finally {
+      setSwitching(false);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -63,22 +72,26 @@ export default function AdminDocumentsPage() {
       <div>
         <h1 className="text-2xl font-bold">Документы</h1>
         <p className="text-muted-foreground">
-          Проверка и утверждение документов студентов
+          Просмотр отчётов студентов
         </p>
       </div>
 
       <CohortFilter
         cohorts={cohorts}
-        selectedIds={selectedCohortIds}
-        onChange={setSelectedCohortIds}
+        selectedId={selectedCohortId}
+        onChange={handleCohortChange}
       />
 
-      <DocumentsTable
-        documents={filteredDocs}
-        onSaveReview={handleSaveReview}
-        onApproveReport={handleApproveReport}
-        onRejectReport={handleRejectReport}
-      />
+      {switching ? (
+        <div className="rounded-lg border bg-card p-8 text-center">
+          <p className="text-muted-foreground">Загрузка документов...</p>
+        </div>
+      ) : (
+        <DocumentsTable
+          applications={applications}
+          onRefresh={loadApplications}
+        />
+      )}
     </div>
   );
 }

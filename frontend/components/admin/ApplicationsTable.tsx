@@ -15,6 +15,7 @@ interface ApplicationsTableProps {
   onApprove: (id: string, roleId: string) => Promise<void>;
   onReject: (id: string, comment: string) => Promise<void>;
   onRoleChange: (id: string, roleId: string) => Promise<void>;
+  onTestReviewed?: () => void;
 }
 
 const ITEMS_PER_PAGE = 25;
@@ -26,14 +27,20 @@ export function ApplicationsTable({
   onApprove,
   onReject,
   onRoleChange,
+  onTestReviewed,
 }: ApplicationsTableProps) {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [reviewApp, setReviewApp] = useState<AdminApplication | null>(null);
 
   const filtered = applications.filter((app) => {
-    if (statusFilter !== "all" && app.status !== statusFilter) return false;
-    return true;
+    if (statusFilter === "all") return true;
+    const status = app.status?.toLowerCase();
+    if (statusFilter === "pending") {
+      // "Ожидание" — анкета на проверке ИЛИ тест назначен/ожидает проверки
+      return status === "pending" || status === "test_assigned" || !!app.testAnswer;
+    }
+    return status === statusFilter;
   });
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -42,28 +49,28 @@ export function ApplicationsTable({
     page * ITEMS_PER_PAGE
   );
 
-  const statusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-green-500 hover:bg-green-600">Одобрена</Badge>;
-      case "rejected":
-        return <Badge variant="destructive">Отклонена</Badge>;
-      default:
-        return <Badge variant="secondary">Ожидание</Badge>;
+  const statusBadge = (app: AdminApplication) => {
+    const s = app.status?.toLowerCase();
+    if (s === "rejected") {
+      return <Badge variant="destructive">Отклонена</Badge>;
     }
+    // Роль назначена = анкета одобрена
+    if (app.roleId) {
+      return <Badge className="bg-green-500 hover:bg-green-600">Одобрена</Badge>;
+    }
+    return <Badge variant="secondary">Ожидание</Badge>;
   };
 
-  const testStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-green-500 hover:bg-green-600">Одобрен</Badge>;
-      case "rejected":
-        return <Badge variant="destructive">Не прошёл</Badge>;
-      case "pending":
-        return <Badge variant="secondary">На проверке</Badge>;
-      default:
-        return <span className="text-muted-foreground">—</span>;
-    }
+  const testStatusBadge = (app: AdminApplication) => {
+    if (!app.roleId) return <span className="text-muted-foreground">—</span>;
+    const s = app.status?.toLowerCase();
+    if (s === "approved")
+      return <Badge className="bg-green-500 hover:bg-green-600">Одобрен</Badge>;
+    if (s === "rejected")
+      return <Badge variant="destructive">Не прошёл</Badge>;
+    if (app.testAnswer)
+      return <Badge className="bg-yellow-500 hover:bg-yellow-600">Ожидает проверки</Badge>;
+    return <Badge variant="outline">Ожидает прохождения</Badge>;
   };
 
   return (
@@ -120,14 +127,14 @@ export function ApplicationsTable({
                   onClick={() => setReviewApp(app)}
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                 >
-                  <td className="px-4 py-3">{app.cohort.name}</td>
+                  <td className="px-4 py-3">{app.cohort?.name || "—"}</td>
                   <td className="px-4 py-3 font-medium">{app.user.fio || app.user.email}</td>
                   <td className="px-4 py-3 text-muted-foreground">{app.user.email}</td>
                   <td className="px-4 py-3">
                     {new Date(app.createdAt).toLocaleDateString("ru-RU")}
                   </td>
-                  <td className="px-4 py-3">{statusBadge(app.status)}</td>
-                  <td className="px-4 py-3">{testStatusBadge(app.testStatus)}</td>
+                  <td className="px-4 py-3">{statusBadge(app)}</td>
+                  <td className="px-4 py-3">{testStatusBadge(app)}</td>
                   <td className="px-4 py-3">
                     <InlineRoleSelect
                       applicationId={app.id}
@@ -178,6 +185,7 @@ export function ApplicationsTable({
           onClose={() => setReviewApp(null)}
           onApprove={onApprove}
           onReject={onReject}
+          onTestReviewed={onTestReviewed}
         />
       )}
     </div>

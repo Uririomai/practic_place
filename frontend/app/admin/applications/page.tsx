@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CohortFilter } from "@/components/admin/CohortFilter";
 import { ApplicationsTable } from "@/components/admin/ApplicationsTable";
 import { api } from "@/shared/api/client";
@@ -10,17 +10,27 @@ export default function AdminApplicationsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [cohortRoles, setCohortRoles] = useState<Record<string, CohortRole[]>>({});
-  const [selectedCohortIds, setSelectedCohortIds] = useState<string[]>([]);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
 
-  const loadData = async () => {
+  const loadApplications = async () => {
     try {
-      const [cohortsData, appsData] = await Promise.all([
-        api.cohorts.list(),
-        api.admin.getApplications(),
-      ]);
-      setCohorts(cohortsData);
+      const appsData = await api.admin.getApplications().catch((e) => {
+        console.error("Ошибка загрузки заявок:", e);
+        return [] as AdminApplication[];
+      });
       setApplications(appsData);
+    } catch {}
+  };
+
+  const loadCohorts = async () => {
+    try {
+      const cohortsData = await api.cohorts.list().catch((e) => {
+        console.error("Ошибка загрузки когорт:", e);
+        return [] as Cohort[];
+      });
+      setCohorts(cohortsData);
 
       // Загружаем роли для каждой когорты
       const rolesMap: Record<string, CohortRole[]> = {};
@@ -33,32 +43,52 @@ export default function AdminApplicationsPage() {
         }
       }
       setCohortRoles(rolesMap);
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
+  };
+
+  const loadData = async () => {
+    await Promise.all([loadCohorts(), loadApplications()]);
+    setLoading(false);
   };
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const filteredApps = selectedCohortIds.length > 0
-    ? applications.filter((app) => selectedCohortIds.includes(app.cohortId))
-    : applications;
+  // Автоматически выбираем первую когорту при загрузке
+  useEffect(() => {
+    if (!loading && cohorts.length > 0 && !selectedCohortId) {
+      handleCohortChange(cohorts[0].id);
+    }
+  }, [loading, cohorts]);
+
+  const handleCohortChange = useCallback(async (cohortId: string) => {
+    setSelectedCohortId(cohortId);
+    setSwitching(true);
+    try {
+      // Меняем активную когорту на бэке
+      await api.auth.updateActiveCohort(cohortId);
+      // Перезагружаем заявки для новой когорты
+      await loadApplications();
+    } catch (e) {
+      console.error("Ошибка смены когорты:", e);
+    } finally {
+      setSwitching(false);
+    }
+  }, []);
 
   const handleApprove = async (id: string, roleId: string) => {
-    await api.admin.reviewApplication(id, { status: "APPROVED", roleId });
-    await loadData();
+    await api.admin.assignTest(id, roleId);
+    await loadApplications();
   };
 
   const handleReject = async (id: string, comment: string) => {
     await api.admin.reviewApplication(id, { status: "REJECTED", reviewComment: comment });
-    await loadData();
+    await loadApplications();
   };
 
   const handleRoleChange = async (id: string, roleId: string) => {
-    // Изменение роли уже произошло в handleApprove, здесь просто обновляем список
-    await loadData();
+    await loadApplications();
   };
 
   if (loading) {
@@ -82,18 +112,25 @@ export default function AdminApplicationsPage() {
 
       <CohortFilter
         cohorts={cohorts}
-        selectedIds={selectedCohortIds}
-        onChange={setSelectedCohortIds}
+        selectedId={selectedCohortId}
+        onChange={handleCohortChange}
       />
 
-      <ApplicationsTable
-        applications={filteredApps}
-        cohorts={cohorts}
-        cohortRoles={cohortRoles}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onRoleChange={handleRoleChange}
-      />
+      {switching ? (
+        <div className="rounded-lg border bg-card p-8 text-center">
+          <p className="text-muted-foreground">Загрузка заявок...</p>
+        </div>
+      ) : (
+        <ApplicationsTable
+          applications={applications}
+          cohorts={cohorts}
+          cohortRoles={cohortRoles}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onRoleChange={handleRoleChange}
+          onTestReviewed={loadApplications}
+        />
+      )}
     </div>
   );
 }

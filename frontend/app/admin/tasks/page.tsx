@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CohortFilter } from "@/components/admin/CohortFilter";
 import { AdminTasksView } from "@/components/admin/AdminTasksView";
 import { api } from "@/shared/api/client";
@@ -10,7 +10,7 @@ import { ru } from "date-fns/locale";
 
 export default function AdminTasksPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
-  const [selectedCohortIds, setSelectedCohortIds] = useState<string[]>([]);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,9 +18,8 @@ export default function AdminTasksPage() {
       try {
         const data = await api.cohorts.list();
         setCohorts(data);
-        // Выбираем первую когорту по умолчанию
         if (data.length > 0) {
-          setSelectedCohortIds([data[0].id]);
+          handleCohortChange(data[0].id);
         }
       } finally {
         setLoading(false);
@@ -29,7 +28,16 @@ export default function AdminTasksPage() {
     loadData();
   }, []);
 
-  const selectedCohorts = cohorts.filter((c) => selectedCohortIds.includes(c.id));
+  const handleCohortChange = useCallback(async (cohortId: string) => {
+    setSelectedCohortId(cohortId);
+    try {
+      await api.auth.updateActiveCohort(cohortId);
+    } catch (e) {
+      console.error("Ошибка смены когорты:", e);
+    }
+  }, []);
+
+  const selectedCohort = cohorts.find((c) => c.id === selectedCohortId);
 
   if (loading) {
     return (
@@ -52,28 +60,26 @@ export default function AdminTasksPage() {
 
       <CohortFilter
         cohorts={cohorts}
-        selectedIds={selectedCohortIds}
-        onChange={setSelectedCohortIds}
+        selectedId={selectedCohortId}
+        onChange={handleCohortChange}
       />
 
-      {selectedCohorts.length === 0 ? (
+      {!selectedCohort ? (
         <div className="rounded-lg border bg-card p-8 text-center">
           <p className="text-muted-foreground">
             Выберите когорту для просмотра задач
           </p>
         </div>
       ) : (
-        selectedCohorts.map((cohort) => (
-          <div key={cohort.id} className="space-y-4">
-            <div className="flex items-baseline gap-3">
-              <h2 className="text-lg font-semibold">{cohort.name}</h2>
-              <span className="text-sm text-muted-foreground">
-                {format(parseISO(cohort.practiceStart), "d MMMM", { locale: ru })} — {format(parseISO(cohort.practiceEnd), "d MMMM yyyy", { locale: ru })}
-              </span>
-            </div>
-            <AdminTasksView cohort={cohort} />
+        <div key={selectedCohort.id} className="space-y-4">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold">{selectedCohort.name}</h2>
+            <span className="text-sm text-muted-foreground">
+              {format(parseISO(selectedCohort.practiceStart), "d MMMM", { locale: ru })} — {format(parseISO(selectedCohort.practiceEnd), "d MMMM yyyy", { locale: ru })}
+            </span>
           </div>
-        ))
+          <AdminTasksView cohort={selectedCohort} />
+        </div>
       )}
     </div>
   );
