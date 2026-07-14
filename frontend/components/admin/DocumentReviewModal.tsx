@@ -84,7 +84,7 @@ export function DocumentReviewModal({
         <div className="grid grid-cols-2 gap-4 text-sm p-3 bg-muted/30 rounded-lg shrink-0">
           <div>
             <span className="text-muted-foreground">Когорта:</span>{" "}
-            {doc.cohort.name}
+            {doc.cohort?.name || "—"}
           </div>
           <div>
             <span className="text-muted-foreground">Группа:</span>{" "}

@@ -18,8 +18,11 @@ export function CohortRolesEditor({ initialRoles, onSave, onCancel }: CohortRole
   );
   const [saving, setSaving] = useState(false);
 
+  const [error, setError] = useState("");
+
   const addRole = () => {
     setRoles([...roles, { name: "" }]);
+    setError("");
   };
 
   const removeRole = (index: number) => {
@@ -31,9 +34,24 @@ export function CohortRolesEditor({ initialRoles, onSave, onCancel }: CohortRole
   };
 
   const handleSave = async () => {
+    const nonEmpty = roles.filter((r) => r.name.trim());
+    // Проверка на дубликаты в редакторе
+    const seen = new Set<string>();
+    for (const r of nonEmpty) {
+      const lower = r.name.trim().toLowerCase();
+      if (seen.has(lower)) {
+        setError(`Роль «${r.name}» добавлена дважды`);
+        return;
+      }
+      seen.add(lower);
+    }
+    setError("");
     setSaving(true);
     try {
-      await onSave(roles.filter((r) => r.name.trim()));
+      await onSave(nonEmpty);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Ошибка сохранения";
+      alert(`Не удалось сохранить роли: ${message}`);
     } finally {
       setSaving(false);
     }
@@ -66,6 +84,7 @@ export function CohortRolesEditor({ initialRoles, onSave, onCancel }: CohortRole
                 variant="ghost"
                 size="icon"
                 onClick={() => removeRole(index)}
+                disabled={roles.length <= 1}
                 className="text-destructive hover:text-destructive shrink-0"
               >
                 <Trash2 className="h-4 w-4" />
@@ -73,6 +92,10 @@ export function CohortRolesEditor({ initialRoles, onSave, onCancel }: CohortRole
             </div>
           ))}
         </div>
+      )}
+
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
       )}
 
       <div className="flex justify-end gap-2 pt-4">

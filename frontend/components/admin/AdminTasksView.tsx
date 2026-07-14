@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { TaskCard, Cohort, CohortParticipant } from "@/shared/api/types";
+import { TaskCard, Cohort, AdminApplication } from "@/shared/api/types";
 import { api } from "@/shared/api/client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -15,7 +15,6 @@ import {
   CalendarDays,
   ExternalLink,
   Clock,
-  User,
   Calendar as CalendarIcon,
 } from "lucide-react";
 import {
@@ -33,6 +32,14 @@ import { ru } from "date-fns/locale";
 
 interface AdminTasksViewProps {
   cohort: Cohort;
+}
+
+interface Participant {
+  userId: string;
+  fio: string;
+  email: string;
+  role: string;
+  applicationId: string;
 }
 
 /** Дата и время обновления: «1 июля, 14:30» */
@@ -57,54 +64,82 @@ function roleBadgeColor(role: string): string {
 
 export function AdminTasksView({ cohort }: AdminTasksViewProps) {
   const [tasks, setTasks] = useState<TaskCard[]>([]);
-  const [participants, setParticipants] = useState<CohortParticipant[]>([]);
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
-    const practiceStart = parseISO(cohort.practiceStart);
-    const practiceEnd = parseISO(cohort.practiceEnd);
-    const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-
-    // Если текущая неделя до начала практики — первая неделя практики
-    if (weekStart < practiceStart) return startOfWeek(practiceStart, { weekStartsOn: 1 });
-    // Если текущая неделя после окончания практики — тоже первая неделя
-    if (weekStart > practiceEnd) return startOfWeek(practiceStart, { weekStartsOn: 1 });
-    return weekStart;
-  });
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [viewingCard, setViewingCard] = useState<TaskCard | null>(null);
-  const [viewingParticipant, setViewingParticipant] = useState<CohortParticipant | null>(null);
+  const [viewingParticipant, setViewingParticipant] = useState<Participant | null>(null);
 
-  const practiceStart = parseISO(cohort.practiceStart);
-  const practiceEnd = parseISO(cohort.practiceEnd);
+  // Даты практики (мемоизированы)
+  const practiceStart = useMemo(() => parseISO(cohort.practiceStart), [cohort.practiceStart]);
+  const practiceEnd = useMemo(() => parseISO(cohort.practiceEnd), [cohort.practiceEnd]);
 
-  // Выбор даты в календаре
-  const handleCalendarSelect = (date: Date) => {
-    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-    const minWeek = startOfWeek(practiceStart, { weekStartsOn: 1 });
-    const maxWeek = startOfWeek(practiceEnd, { weekStartsOn: 1 });
-    const clamped = weekStart < minWeek ? minWeek : weekStart > maxWeek ? maxWeek : weekStart;
-    setCurrentWeekStart(clamped);
-    setCalendarOpen(false);
+  // Начальная неделя
+  const getInitialWeek = (): Date => {
+    const today = new Date();
+    const firstWeek = startOfWeek(practiceStart, { weekStartsOn: 1 });
+    const lastWeek = startOfWeek(endOfWeek(practiceEnd, { weekStartsOn: 1 }), { weekStartsOn: 1 });
+    const currentWeek = startOfWeek(today, { weekStartsOn: 1 });
+    if (today < practiceStart) return firstWeek;
+    if (currentWeek < firstWeek) return firstWeek;
+    if (currentWeek > lastWeek) return lastWeek;
+    return currentWeek;
   };
 
-  // Загрузка данных
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getInitialWeek);
+
+  // Загрузка заявок + задач
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [tasksData, participantsData] = await Promise.all([
-          api.taskCards.list({ cohortId: cohort.id, date: currentWeekStart.toISOString().split("T")[0] }),
-          api.cohortParticipants.list(cohort.id),
-        ]);
-        setTasks(tasksData);
-        setParticipants(participantsData);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [cohort.id, currentWeekStart]);
+    let cancelled = false;
+    setLoading(true);
+
+    api.admin
+      .getApplications([cohort.id])
+      .then(async (apps) => {
+        if (cancelled) return;
+
+        // Только одобренные заявки
+        const approved = apps.filter((a) => a.status?.toLowerCase() === "approved");
+
+        // Строим участников из заявок
+        const parts: Participant[] = approved.map((a) => ({
+          userId: a.user.id,
+          fio: a.user.fio || a.user.email,
+          email: a.user.email,
+          role: a.role?.name || "Студент",
+          applicationId: a.id,
+        }));
+        setParticipants(parts);
+
+        // Загружаем задачи для каждой заявки
+        const taskResults = await Promise.all(
+          approved.map(async (a) => {
+            try {
+              const appTasks = await api.taskCards.listByApplication(a.id);
+              // Добавляем userId к каждой задаче
+              return appTasks;
+            } catch {
+              return [];
+            }
+          })
+        );
+
+        if (!cancelled) {
+          setTasks(taskResults.flat());
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTasks([]);
+          setParticipants([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [cohort.id]);
 
   // Дни недели (пн-пт)
   const weekDays = useMemo(() => {
@@ -114,32 +149,60 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
     );
   }, [currentWeekStart]);
 
-  // Задачи по пользователям и дням
-  const getCardForDay = (day: Date, userId: string): TaskCard | undefined => {
+  // Задачи по заявке и дню (нормализуем дату — берём только yyyy-MM-dd)
+  const getCardForDay = (day: Date, applicationId: string): TaskCard | undefined => {
     const key = format(day, "yyyy-MM-dd");
-    return tasks.find((t) => t.userId === userId && t.date === key);
+    return tasks.find((t) => {
+      if (t.applicationId !== applicationId) return false;
+      // Нормализуем: из "2026-07-14T00:00:00.000Z" или "2026-07-14" берём "2026-07-14"
+      const taskDate = t.date?.slice(0, 10);
+      return taskDate === key;
+    });
   };
 
-  // Участники, сгруппированные по ролям
+  // Участники, сгруппированные по ролям (без дефолтной "Студент")
   const sortedParticipants = useMemo(() => {
     return [...participants].sort((a, b) => a.role.localeCompare(b.role));
   }, [participants]);
 
+  // Есть ли хотя бы одна реальная роль (не "Студент")
+  const hasNamedRoles = useMemo(() => {
+    return participants.some((p) => p.role && p.role !== "Студент");
+  }, [participants]);
+
   const roleGroups = useMemo(() => {
-    const groups = new Map<string, CohortParticipant[]>();
+    const groups = new Map<string, Participant[]>();
     sortedParticipants.forEach((p) => {
-      const existing = groups.get(p.role) || [];
-      groups.set(p.role, [...existing, p]);
+      // Если есть именованные роли — "Студент" группируем без бейджа
+      const groupKey = hasNamedRoles && (!p.role || p.role === "Студент") ? "" : p.role;
+      const existing = groups.get(groupKey) || [];
+      groups.set(groupKey, [...existing, p]);
     });
     return groups;
-  }, [sortedParticipants]);
+  }, [sortedParticipants, hasNamedRoles]);
 
-  // Навигация
-  const canGoPrev = currentWeekStart > practiceStart;
+  // Навигация (через timestamp)
+  const minWeek = startOfWeek(practiceStart, { weekStartsOn: 1 }).getTime();
+  const maxWeek = startOfWeek(endOfWeek(practiceEnd, { weekStartsOn: 1 }), { weekStartsOn: 1 }).getTime();
+
+  const goToPrevWeek = () => {
+    setCurrentWeekStart((w) => {
+      const prev = subWeeks(w, 1).getTime();
+      return new Date(prev < minWeek ? minWeek : prev);
+    });
+  };
+
+  const goToNextWeek = () => {
+    setCurrentWeekStart((w) => {
+      const next = addWeeks(w, 1).getTime();
+      return new Date(next > maxWeek ? maxWeek : next);
+    });
+  };
+
+  const canGoPrev = currentWeekStart.getTime() > minWeek;
+  const canGoNext = currentWeekStart.getTime() < maxWeek;
+
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-  const canGoNext = weekEnd < practiceEnd;
-
-  // Проверяем, что неделя пересекается с периодом практики
   const isWeekInPractice =
     currentWeekStart <= practiceEnd && weekEnd >= practiceStart;
 
@@ -153,6 +216,14 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
     const practiceWeekStart = startOfWeek(practiceStart, { weekStartsOn: 1 });
     return Math.round((currentWeekStart.getTime() - practiceWeekStart.getTime()) / (7 * 86400000)) + 1;
   }, [currentWeekStart, practiceStart]);
+
+  // Выбор даты в календаре
+  const handleCalendarSelect = (date: Date) => {
+    const weekStartMs = startOfWeek(date, { weekStartsOn: 1 }).getTime();
+    const clampedMs = weekStartMs < minWeek ? minWeek : weekStartMs > maxWeek ? maxWeek : weekStartMs;
+    setCurrentWeekStart(new Date(clampedMs));
+    setCalendarOpen(false);
+  };
 
   if (loading) {
     return (
@@ -169,12 +240,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
       {/* Навигация */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canGoPrev}
-            onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
-          >
+          <Button variant="outline" size="sm" disabled={!canGoPrev} onClick={goToPrevWeek}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
@@ -187,7 +253,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
                 </span>
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-background border shadow-lg" align="center">
+            <PopoverContent className="w-auto p-0 bg-background border shadow-lg" align="center" side="bottom">
               <Calendar
                 selected={currentWeekStart}
                 onSelect={handleCalendarSelect}
@@ -196,12 +262,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
               />
             </PopoverContent>
           </Popover>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canGoNext}
-            onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}
-          >
+          <Button variant="outline" size="sm" disabled={!canGoNext} onClick={goToNextWeek}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -261,8 +322,8 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
               ) : (
                 Array.from(roleGroups.entries()).map(([role, groupParticipants]) => (
                   <Fragment key={role}>
-                    {/* Заголовок группы ролей */}
-                    {roleGroups.size > 1 && (
+                    {/* Заголовок группы ролей (только для именованных ролей) */}
+                    {roleGroups.size > 1 && role && (
                       <tr className="border-b bg-muted/30">
                         <td colSpan={weekDays.length + 1} className="px-3 py-2">
                           <Badge variant="secondary" className={roleBadgeColor(role)}>
@@ -291,7 +352,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
                               >
                                 {participant.fio}
                               </Link>
-                              {roleGroups.size > 1 && (
+                              {roleGroups.size > 1 && participant.role && participant.role !== "Студент" && (
                                 <Badge variant="secondary" className={`mt-0.5 text-[10px] ${roleBadgeColor(participant.role)}`}>
                                   {participant.role}
                                 </Badge>
@@ -302,11 +363,16 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
 
                         {/* Ячейки дней */}
                         {weekDays.map((day) => {
-                          const card = getCardForDay(day, participant.userId);
+                          const card = getCardForDay(day, participant.applicationId);
                           return (
                             <td key={day.toISOString()} className="p-1.5">
                               <button
-                                onClick={() => card && setViewingCard(card) && setViewingParticipant(participant)}
+                                onClick={() => {
+                                  if (card) {
+                                    setViewingCard(card);
+                                    setViewingParticipant(participant);
+                                  }
+                                }}
                                 disabled={!card}
                                 className={`w-full min-h-[60px] rounded-md p-2 text-left transition-colors ${
                                   card
@@ -367,9 +433,11 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
                 </div>
                 <div>
                   <p className="font-medium">{viewingParticipant.fio}</p>
-                  <Badge variant="secondary" className={`mt-0.5 text-[10px] ${roleBadgeColor(viewingParticipant.role)}`}>
-                    {viewingParticipant.role}
-                  </Badge>
+                  {viewingParticipant.role && viewingParticipant.role !== "Студент" && (
+                    <Badge variant="secondary" className={`mt-0.5 text-[10px] ${roleBadgeColor(viewingParticipant.role)}`}>
+                      {viewingParticipant.role}
+                    </Badge>
+                  )}
                 </div>
               </div>
             )}

@@ -23,7 +23,7 @@ export function StudentDocumentsTab({ documents }: StudentDocumentsTabProps) {
       {documents.map((doc) => (
         <div key={doc.id} className="rounded-lg border p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium">{doc.cohort.name}</h3>
+            <h3 className="font-medium">{doc.cohort?.name || "Когорта"}</h3>
             <ReportStatusBadge
               hasReport={!!doc.report_file_url}
               isApproved={doc.report_admin_approved}

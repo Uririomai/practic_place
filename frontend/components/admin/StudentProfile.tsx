@@ -10,6 +10,7 @@ import { StudentSurveyTab } from "./StudentSurveyTab";
 import { StudentTestTab } from "./StudentTestTab";
 import { StudentDocumentsTab } from "./StudentDocumentsTab";
 import { StudentTasksTab } from "./StudentTasksTab";
+import { StudentDataTab } from "./StudentDataTab";
 import { api } from "@/shared/api/client";
 import { StudentProfile as StudentProfileType } from "@/shared/api/types";
 import { ArrowLeft, Mail, Users } from "lucide-react";
@@ -34,8 +35,62 @@ export function StudentProfile({ userId }: StudentProfileProps) {
     const loadProfile = async () => {
       setLoading(true);
       try {
-        const data = await api.admin.getUserProfile(userId);
-        setProfile(data);
+        const [data, cohorts] = await Promise.all([
+          api.admin.getUserProfile(userId),
+          api.cohorts.list().catch(() => []),
+        ]);
+        // Загружаем роли для когорт заявок
+        const uniqueCohortIds = [...new Set(data.applications.map(a => a.cohortId))];
+        const rolesMap: Record<string, { id: string; name: string }[]> = {};
+        await Promise.all(
+          uniqueCohortIds.map(async (cid) => {
+            try {
+              const roles = await api.admin.getRoles(cid);
+              rolesMap[cid] = roles;
+            } catch {
+              rolesMap[cid] = [];
+            }
+          })
+        );
+        // Загружаем каждую заявку через GET /applications/:id (ответы внутри)
+        const cohortMap = new Map(cohorts.map(c => [c.id, c]));
+        const applications = await Promise.all(
+          data.applications.map(async (app) => {
+            const roles = rolesMap[app.cohortId] || [];
+            const role = app.role || roles.find(r => r.id === app.roleId) || null;
+            const cohort = cohortMap.get(app.cohortId) || app.cohort;
+            let surveyData: Record<string, string> = {};
+            try {
+              const detailed = await api.admin.getApplication(app.id);
+              if (Array.isArray(detailed.answers)) {
+                for (const a of detailed.answers) {
+                  surveyData[a.fieldId] = a.value;
+                }
+              }
+              return {
+                ...app,
+                ...detailed,
+                surveyData,
+                role,
+                cohort,
+              };
+            } catch {
+              return {
+                ...app,
+                surveyData,
+                role,
+                cohort,
+              };
+            }
+          })
+        );
+        const documents = data.documents.map(doc => ({
+          ...doc,
+          cohort: doc.cohort || cohorts.find(c => c.id === doc.cohortId) || { id: doc.cohortId, name: "—" },
+        }));
+        setProfile({ ...data, applications, documents });
+      } catch {
+        setProfile(null);
       } finally {
         setLoading(false);
       }
@@ -94,19 +149,19 @@ export function StudentProfile({ userId }: StudentProfileProps) {
       {/* Шапка профиля */}
       <div className="flex items-start gap-4 p-4 bg-muted/30 rounded-lg">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-medium text-primary">
-          {(profile.user.fio || profile.user.email).split(" ").map(n => n[0]).join("").slice(0, 2)}
+          {(profile.user.profile?.student_fio || profile.user.fio || profile.user.email).split(" ").map(n => n[0]).join("").slice(0, 2)}
         </div>
         <div>
-          <h1 className="text-2xl font-bold">{profile.user.fio || profile.user.email}</h1>
+          <h1 className="text-2xl font-bold">{profile.user.profile?.student_fio || profile.user.fio || profile.user.email}</h1>
           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <Mail className="h-4 w-4" />
               {profile.user.email}
             </span>
-            {profile.documents[0]?.group && (
+            {profile.user.profile?.group && (
               <span className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                Группа: {profile.documents[0].group}
+                Группа: {profile.user.profile.group}
               </span>
             )}
           </div>
@@ -165,6 +220,12 @@ export function StudentProfile({ userId }: StudentProfileProps) {
           >
             Задачи
           </TabsTrigger>
+          <TabsTrigger
+            value="data"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary"
+          >
+            Данные
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="survey" className="mt-4">
@@ -181,6 +242,9 @@ export function StudentProfile({ userId }: StudentProfileProps) {
             tasksByCohort={tasksByCohort}
             selectedCohortId={selectedCohortId}
           />
+        </TabsContent>
+        <TabsContent value="data" className="mt-4">
+          <StudentDataTab profile={profile.user.profile} />
         </TabsContent>
       </Tabs>
     </div>
