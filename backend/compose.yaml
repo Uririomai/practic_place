@@ -20,11 +20,11 @@ services:
     build:
       context: .
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       DATABASE_URL: postgresql://postgres:12345678@db:5432/app
       JWT_SECRET: blah-blah
-      PORT: "3000"
+      PORT: "3001"
       ADMIN_EMAIL: admin123@example.com
       ADMIN_PASSWORD: 12345678
     depends_on:

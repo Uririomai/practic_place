@@ -27,6 +27,7 @@ services:
       PORT: "3000"
       ADMIN_EMAIL: admin123@example.com
       ADMIN_PASSWORD: 12345678
+      SWAGGER_ENABLED: "true"
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -31,9 +31,10 @@ services:
       SWAGGER_ENABLED: true
       ADMIN_EMAIL: admin123@example.com
       ADMIN_PASSWORD: 12345678
-    command: sh -c "npx prisma generate && npm run dev"
+    command: sh -c "/app/node_modules/.bin/prisma generate && npm run dev"
     volumes:
       - .:/app
+      - /app/node_modules
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -54,9 +55,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: npx prisma db push
+    command: sh -c "/app/node_modules/.bin/prisma db push"
     volumes:
       - .:/app
+      - /app/node_modules
     environment:
       DATABASE_URL: postgresql://postgres:12345678@db:5432/app
     depends_on:
