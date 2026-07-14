@@ -597,7 +597,11 @@ router.put("/:id/test-answer", async (req, res, next) => {
   try {
     const userId = req.user!.sub;
     const applicationId = req.params.id as string;
-    const { testAnswer } = req.body as { testAnswer?: string };
+    const { testAnswer } = req.body as { testAnswer?: unknown };
+
+    if (typeof testAnswer !== "string") {
+      throw new AppError("FIELD_REQUIRED", 400, "testAnswer field is required")
+    }
 
     const application = await prisma.application.findUnique({
       where: { id: applicationId },
