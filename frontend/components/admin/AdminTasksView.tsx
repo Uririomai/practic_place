@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { TaskCard, Cohort, AdminApplication } from "@/shared/api/types";
+import { TaskCard, Cohort, CohortStudent } from "@/shared/api/types";
 import { api } from "@/shared/api/client";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -88,45 +88,34 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
 
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getInitialWeek);
 
-  // Загрузка заявок + задач
+  // Загрузка студентов и задач из GET /cohorts/:id/students
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    api.admin
-      .getApplications([cohort.id])
-      .then(async (apps) => {
+    api.cohorts
+      .getStudents(cohort.id)
+      .then((data) => {
         if (cancelled) return;
 
-        // Только одобренные заявки
-        const approved = apps.filter((a) => a.status?.toLowerCase() === "approved");
-
-        // Строим участников из заявок
-        const parts: Participant[] = approved.map((a) => ({
-          userId: a.user.id,
-          fio: a.user.fio || a.user.email,
-          email: a.user.email,
-          role: a.role?.name || "Студент",
-          applicationId: a.id,
+        // Маппим студентов в участников
+        const parts: Participant[] = data.map((s) => ({
+          userId: s.user.id,
+          fio: s.user.profile?.student_fio || s.user.email,
+          email: s.user.email,
+          role: s.application.role?.name || "Студент",
+          applicationId: s.application.id,
         }));
         setParticipants(parts);
 
-        // Загружаем задачи для каждой заявки
-        const taskResults = await Promise.all(
-          approved.map(async (a) => {
-            try {
-              const appTasks = await api.taskCards.listByApplication(a.id);
-              // Добавляем userId к каждой задаче
-              return appTasks;
-            } catch {
-              return [];
-            }
-          })
-        );
-
-        if (!cancelled) {
-          setTasks(taskResults.flat());
-        }
+        // Собираем все задачи с userId
+        const allTasks: TaskCard[] = [];
+        data.forEach((s) => {
+          s.tasks.forEach((t) => {
+            allTasks.push({ ...t, applicationId: s.application.id } as TaskCard);
+          });
+        });
+        setTasks(allTasks);
       })
       .catch(() => {
         if (!cancelled) {
