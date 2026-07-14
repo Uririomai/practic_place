@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { useAuth } from "@/shared/hooks/use-auth";
-import { TaskCard, CreateTaskCardDto, CohortParticipant } from "@/shared/api/types";
+import { TaskCard, CreateTaskCardDto, CohortStudent } from "@/shared/api/types";
 import {
   startOfWeek,
   endOfWeek,
@@ -62,7 +63,7 @@ function roleBadgeColor(role: string): string {
 export function TasksTab() {
   const { user } = useAuth();
   const [cards, setCards] = useState<TaskCard[]>([]);
-  const [participants, setParticipants] = useState<CohortParticipant[]>([]);
+  const [students, setStudents] = useState<CohortStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
@@ -127,44 +128,29 @@ export function TasksTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceStart, practiceEnd]);
 
-  // Загрузка заявки студента
-  useEffect(() => {
-    if (!user?.id) return;
-    api.applications
-      .getMy()
-      .then((apps) => {
-        // Ищем одобренную заявку на активную когорту
-        const approved = apps.find(
-          (a) => a.status?.toLowerCase() === "approved" && a.cohortId === user.activeCohortId
-        );
-        const found = approved || apps.find((a) => a.status?.toLowerCase() === "approved") || apps[0];
-        if (found) {
-          setApplicationId(found.id);
-          setApprovedApp(found);
-        }
-      })
-      .catch(() => {});
-  }, [user?.id, user?.activeCohortId]);
-
-  // Загрузка задач
-  useEffect(() => {
-    if (!applicationId) return;
-    setLoading(true);
-    api.taskCards
-      .listByApplication(applicationId)
-      .then(setCards)
-      .catch(() => setCards([]))
-      .finally(() => setLoading(false));
-  }, [applicationId]);
-
-  // Загрузка участников (пока заглушка — пустой массив)
+  // Загрузка студентов и задач из GET /cohorts/:id/students
   useEffect(() => {
     if (!cohort?.id) return;
-    api.cohortParticipants
-      .list(cohort.id)
-      .then(setParticipants)
-      .catch(() => setParticipants([]));
-  }, [cohort?.id]);
+    setLoading(true);
+    api.cohorts
+      .getStudents(cohort.id)
+      .then((data) => {
+        setStudents(data);
+        // Находим заявку текущего пользователя
+        const myStudent = data.find((s) => s.user.id === user?.id);
+        if (myStudent) {
+          setApplicationId(myStudent.application.id);
+          setApprovedApp(myStudent.application);
+          // Задачи текущего пользователя
+          setCards(myStudent.tasks as TaskCard[]);
+        }
+      })
+      .catch(() => {
+        setStudents([]);
+        setCards([]);
+      })
+      .finally(() => setLoading(false));
+  }, [cohort?.id, user?.id]);
 
   // Прогресс
   const totalWeeks = useMemo(() => {
@@ -201,36 +187,30 @@ export function TasksTab() {
     return approvedApp?.role?.name || user?.activeRole?.name || "";
   }, [approvedApp, user]);
 
-  // Гарантируем, что текущий пользователь всегда в списке участников
-  const participantsWithMe = useMemo(() => {
-    const hasMe = participants.some((p) => p.userId === currentUserId);
-    if (hasMe) return participants;
-    // Добавляем текущего пользователя из данных auth
-    const me: CohortParticipant = {
-      userId: currentUserId,
-      email: user?.email || "",
-      fio: user?.fio || user?.email || "Вы",
-      role: myRole,
-    };
-    return [me, ...participants];
-  }, [participants, currentUserId, user, myRole]);
+  // Маппинг студентов в участников для таблицы
+  const participants = useMemo(() => {
+    return students.map((s) => ({
+      userId: s.user.id,
+      email: s.user.email,
+      fio: s.user.profile?.student_fio || s.user.email,
+      role: s.application.role?.name || "Студент",
+      applicationId: s.application.id,
+    }));
+  }, [students]);
 
   // Участники: текущий пользователь всегда первый
   const sortedParticipants = useMemo(() => {
-    if (showAll) {
-      // Текущий пользователь всегда первый, остальные по ролям
-      const me = participantsWithMe.filter((p) => p.userId === currentUserId);
-      const others = participantsWithMe
-        .filter((p) => p.userId !== currentUserId)
-        .sort((a, b) => a.role.localeCompare(b.role));
-      return [...me, ...others];
-    }
-    return participantsWithMe.filter((p) => p.userId === currentUserId);
-  }, [participantsWithMe, showAll, currentUserId]);
+    const me = participants.filter((p) => p.userId === currentUserId);
+    const others = participants
+      .filter((p) => p.userId !== currentUserId)
+      .sort((a, b) => a.role.localeCompare(b.role));
+    if (showAll) return [...me, ...others];
+    return me;
+  }, [participants, showAll, currentUserId]);
 
   // Группировка по ролям
   const roleGroups = useMemo(() => {
-    const groups = new Map<string, CohortParticipant[]>();
+    const groups = new Map<string, typeof participants>();
     sortedParticipants.forEach((p) => {
       const list = groups.get(p.role) || [];
       list.push(p);
@@ -246,18 +226,22 @@ export function TasksTab() {
   };
 
   // Получить карточку для дня и пользователя
-  // Задачи привязаны к applicationId, а не userId
   const getCardForDay = (date: Date, userId: string): TaskCard | undefined => {
-    return cards.find((c) => {
-      const cardDate = parseISO(c.date);
-      // Если userId совпадает с текущим — ищем по applicationId
-      if (userId === currentUserId && applicationId) {
-        return c.applicationId === applicationId && isSameDay(cardDate, date);
-      }
-      // Для других участников — по userId (если есть) или applicationId
-      const cardUserId = c.userId || c.applicationId;
-      return cardUserId === userId && isSameDay(cardDate, date);
-    });
+    const key = format(date, "yyyy-MM-dd");
+    // Ищем задачу в данных студентов
+    const student = students.find((s) => s.user.id === userId);
+    if (student) {
+      const found = student.tasks.find((t) => {
+        const taskDate = t.date?.slice(0, 10);
+        return taskDate === key;
+      });
+      if (found) return found as TaskCard;
+    }
+    // Фоллбэк: свои задачи из отдельного стейта
+    if (userId === currentUserId) {
+      return cards.find((c) => c.date?.slice(0, 10) === key);
+    }
+    return undefined;
   };
 
   // Открыть модалку создания/редактирования
@@ -353,33 +337,34 @@ export function TasksTab() {
   // Состояние загрузки
   if (!cohort) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold">Задачи</h2>
           <p className="text-muted-foreground">Ежедневный отчёт о выполненной работе</p>
         </div>
-        <div className="rounded-lg border bg-muted/50 p-8 text-center">
-          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-2 text-sm text-muted-foreground">Загрузка данных когорты...</p>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <CalendarDays className="mb-4 h-12 w-12 text-muted-foreground" />
+            <p className="text-muted-foreground">Вы не зачислены ни на одну практику.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (!applicationId && !loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold">Задачи</h2>
           <p className="text-muted-foreground">Ежедневный отчёт о выполненной работе</p>
         </div>
-        <div className="rounded-lg border bg-muted/50 p-8 text-center">
-          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-2 text-sm text-muted-foreground">Нет одобренной заявки</p>
-          <p className="text-xs text-muted-foreground">
-            Подайте заявку и дождитесь одобрения для доступа к задачам
-          </p>
-        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <CalendarDays className="mb-4 h-12 w-12 text-muted-foreground" />
+            <p className="text-muted-foreground">Нет одобренной заявки</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
