@@ -29,9 +29,11 @@ interface CalendarProps {
   onSelect?: (date: Date) => void;
   disabledBefore?: Date;
   disabledAfter?: Date;
+  /** Выделять неделю вокруг выбранной даты (по умолчанию true) */
+  selectWeek?: boolean;
 }
 
-export function Calendar({ selected, onSelect, disabledBefore, disabledAfter }: CalendarProps) {
+export function Calendar({ selected, onSelect, disabledBefore, disabledAfter, selectWeek = true }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(selected || new Date());
 
   const monthStart = startOfMonth(currentMonth);
@@ -64,7 +66,7 @@ export function Calendar({ selected, onSelect, disabledBefore, disabledAfter }: 
   const weekDayHeaders = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
   return (
-    <div className="p-4 w-[320px]">
+    <div className="p-4 w-[320px] bg-white">
       {/* Навигация по месяцам */}
       <div className="flex items-center justify-between mb-4">
         <Button
@@ -106,7 +108,7 @@ export function Calendar({ selected, onSelect, disabledBefore, disabledAfter }: 
         {daysInMonth.map((day) => {
           const disabled = isDisabled(day);
           const isSelectedDay = selected && isSameDay(day, selected);
-          const isInWeek = isInSelectedWeek(day);
+          const isInWeek = selectWeek && isInSelectedWeek(day);
           const isCurrentMonth = isSameMonth(day, currentMonth);
 
           return (
@@ -129,7 +131,7 @@ export function Calendar({ selected, onSelect, disabledBefore, disabledAfter }: 
       </div>
 
       {/* Подпись выбранной недели */}
-      {selectedWeek && (
+      {selectWeek && selectedWeek && (
         <div className="mt-3 pt-3 border-t text-center">
           <p className="text-xs text-muted-foreground">
             Неделя: {format(selectedWeek.start, "d MMMM", { locale: ru })} — {format(selectedWeek.end, "d MMMM", { locale: ru })}

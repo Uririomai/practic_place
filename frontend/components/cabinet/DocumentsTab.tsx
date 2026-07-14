@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,12 +12,13 @@ import {
   File,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
-import { StudentDocumentData } from "@/shared/api/types";
+import { DocumentTemplateAvailability, Application } from "@/shared/api/types";
 
 type DocStatus = "ready" | "pending" | "not_ready";
 
 export function DocumentsTab() {
-  const [doc, setDoc] = useState<StudentDocumentData | null>(null);
+  const [application, setApplication] = useState<Application | null>(null);
+  const [templates, setTemplates] = useState<DocumentTemplateAvailability[]>([]);
   const [loading, setLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,25 +33,30 @@ export function DocumentsTab() {
   };
 
   useEffect(() => {
-    api.studentDocument
-      .get("test-cohort-id")
-      .then(setDoc)
-      .catch(() => setDoc(null))
+    // Получаем заявку студента, потом загружаем документы
+    api.applications.getMy()
+      .then((apps) => {
+        if (apps.length === 0) {
+          setLoading(false);
+          return;
+        }
+        // Берём первую заявку (у студента обычно одна)
+        const app = apps[0];
+        setApplication(app);
+        return api.documents.list(app.id);
+      })
+      .then((docs) => {
+        if (docs) setTemplates(docs);
+      })
+      .catch(() => {
+        setTemplates([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  // Статусы для каждого документа
-  const izStatus: DocStatus = doc?.practice_topic ? "ready" : "not_ready";
-  const reviewStatus: DocStatus = doc?.review_characteristic ? "ready" : "pending";
-  const titleStatus: DocStatus = doc?.report_admin_approved
-    ? "ready"
-    : reportFile
-    ? "pending"
-    : "not_ready";
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !application) return;
 
     const allowedTypes = [
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -67,16 +73,50 @@ export function DocumentsTab() {
     }
 
     setUploading(true);
-    setTimeout(() => {
+    try {
+      await api.documents.uploadReport(application.id, file);
       setReportFile({ name: file.name, size: file.size });
-      setUploading(false);
       showToast("success", "Отчёт загружен. Ожидайте проверки администратором.");
-    }, 800);
+    } catch (err) {
+      showToast("error", "Ошибка загрузки отчёта");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleRemoveFile = () => {
     setReportFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDownload = async (templateId: string, name: string) => {
+    if (!application) return;
+    try {
+      const blob = await api.documents.download(application.id, templateId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${name}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast("error", "Ошибка скачивания документа");
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    if (!application) return;
+    try {
+      const blob = await api.documents.downloadReport(application.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "report.docx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast("error", "Ошибка скачивания отчёта");
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -85,15 +125,17 @@ export function DocumentsTab() {
     return (bytes / (1024 * 1024)).toFixed(1) + " МБ";
   };
 
-  const statusBadge = (status: DocStatus) => {
-    switch (status) {
-      case "ready":
-        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Готово</Badge>;
-      case "pending":
-        return <Badge variant="outline" className="border-yellow-300 text-yellow-700">Ожидание</Badge>;
-      case "not_ready":
-        return <Badge variant="secondary">Не готово</Badge>;
+  const statusBadge = (available: boolean, reason?: string) => {
+    if (available) {
+      return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Готово</Badge>;
     }
+    if (reason?.includes("not uploaded")) {
+      return <Badge variant="secondary">Не загружен отчёт</Badge>;
+    }
+    if (reason?.includes("not approved")) {
+      return <Badge variant="outline" className="border-yellow-300 text-yellow-700">Ожидание проверки</Badge>;
+    }
+    return <Badge variant="secondary">Не готово</Badge>;
   };
 
   if (loading) {
@@ -108,6 +150,23 @@ export function DocumentsTab() {
             <div key={i} className="h-32 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold">Документы</h2>
+          <p className="text-muted-foreground">Документы по практике</p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
+            <p className="text-muted-foreground">У вас пока нет заявок. Подайте заявку для доступа к документам.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -132,83 +191,62 @@ export function DocumentsTab() {
       </div>
 
       {/* Сгенерированные документы */}
-      <div>
-        <h3 className="mb-3 text-sm font-medium text-muted-foreground">Готовые документы</h3>
-        <div className="grid gap-3">
-          {/* ИЗ */}
-          <Card>
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="font-medium">Индивидуальное задание</p>
-                  <p className="text-xs text-muted-foreground">
-                    {izStatus === "ready" ? "Сформировано на основе анкеты" : "Заполните анкету для генерации"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {statusBadge(izStatus)}
-                {izStatus === "ready" && (
-                  <Button size="sm" variant="ghost">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+      {templates.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-medium text-muted-foreground">Готовые документы</h3>
+          <div className="grid gap-3">
+            {templates.map((template) => (
+              <Card key={template.id}>
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{template.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {template.available
+                          ? "Доступно для скачивания"
+                          : template.reason || "Не доступно"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {statusBadge(template.available, template.reason)}
+                    {template.available && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDownload(template.id, template.slug)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {/* Отзыв */}
+      {templates.length === 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-medium text-muted-foreground">Документы</h3>
           <Card>
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="font-medium">Отзыв о практике</p>
-                  <p className="text-xs text-muted-foreground">
-                    {reviewStatus === "ready"
-                      ? "Заполнен администратором"
-                      : "Ожидает заполнения администратором"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {statusBadge(reviewStatus)}
-                {reviewStatus === "ready" && (
-                  <Button size="sm" variant="ghost">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <FileText className="mb-4 h-10 w-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Шаблоны документов пока не добавлены</p>
             </CardContent>
           </Card>
         </div>
-      </div>
+      )}
 
-      {/* Титульный лист + отчёт */}
+      {/* Загрузка отчёта */}
       <div>
-        <h3 className="mb-3 text-sm font-medium text-muted-foreground">Титульный лист</h3>
+        <h3 className="mb-3 text-sm font-medium text-muted-foreground">Отчёт о практике</h3>
         <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base">Титульный лист</CardTitle>
-                {statusBadge(titleStatus)}
-              </div>
-            </div>
-            <CardDescription>
-              {titleStatus === "ready"
-                ? "Документ готов к скачиванию"
-                : titleStatus === "pending"
-                ? "Отчёт загружен. Ожидайте проверки администратором."
-                : "Загрузите отчёт, чтобы сформировать титульный лист"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3 p-4">
             <input
               ref={fileInputRef}
               type="file"
@@ -217,12 +255,7 @@ export function DocumentsTab() {
               className="hidden"
             />
 
-            {titleStatus === "ready" ? (
-              <Button className="w-full">
-                <Download className="mr-2 h-4 w-4" />
-                Скачать титульный лист
-              </Button>
-            ) : reportFile ? (
+            {reportFile ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
                   <div className="flex items-center gap-2">
@@ -237,7 +270,7 @@ export function DocumentsTab() {
                   </Button>
                 </div>
                 <p className="text-xs text-center text-muted-foreground">
-                  Администратор проверит отчёт и одобрит формирование титульного листа
+                  Администратор проверит отчёт и одобрит формирование документов
                 </p>
               </div>
             ) : (

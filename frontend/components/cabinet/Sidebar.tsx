@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/shared/hooks/use-auth";
+import { Badge } from "@/components/ui/badge";
 import {
   User,
   ClipboardList,
-  FileText,
   FileStack,
   CalendarDays,
   LogOut,
@@ -15,7 +15,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 const navItems = [
   { href: "/cabinet/profile", label: "Профиль", icon: User },
@@ -31,6 +31,23 @@ export function Sidebar() {
 
   const isActive = (href: string) => pathname === href;
 
+  // Активная когорта
+  const activeCohort = useMemo(() => {
+    if (!user?.cohorts || !user.activeCohortId) return null;
+    return user.cohorts.find((c) => c.id === user.activeCohortId);
+  }, [user?.cohorts, user?.activeCohortId]);
+
+  // Прогресс практики (дни)
+  const practiceProgress = useMemo(() => {
+    if (!activeCohort) return null;
+    const now = new Date();
+    const start = new Date(activeCohort.practiceStart);
+    const end = new Date(activeCohort.practiceEnd);
+    const total = Math.ceil((end.getTime() - start.getTime()) / 86400000);
+    const passed = Math.max(0, Math.min(total, Math.ceil((now.getTime() - start.getTime()) / 86400000)));
+    return { total, passed, percent: total > 0 ? Math.round((passed / total) * 100) : 0 };
+  }, [activeCohort]);
+
   const navContent = (
     <>
       {/* Логотип */}
@@ -41,8 +58,30 @@ export function Sidebar() {
         <span className="text-lg font-semibold">Практика</span>
       </div>
 
+      {/* Активная когорта */}
+      {activeCohort && (
+        <div className="mx-3 mt-3 rounded-lg border bg-primary/5 p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-1">Текущая практика</p>
+          <p className="text-sm font-semibold truncate">{activeCohort.name}</p>
+          {user?.activeRole && (
+            <Badge variant="outline" className="mt-1 text-[10px]">{user.activeRole.name}</Badge>
+          )}
+          {practiceProgress && (
+            <div className="mt-2">
+              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                <span>{new Date(activeCohort.practiceStart).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — {new Date(activeCohort.practiceEnd).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span>
+                <span>{practiceProgress.passed}/{practiceProgress.total} дн.</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${practiceProgress.percent}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Навигация */}
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="flex-1 space-y-1 px-3 mt-3">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);

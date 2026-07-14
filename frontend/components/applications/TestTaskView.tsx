@@ -10,6 +10,7 @@ import { api } from "@/shared/api/client";
 
 interface TestTaskViewProps {
   cohortId: string;
+  applicationId?: string;
   testTask: TestTask | null;
   initialStatus: TestTaskStatus;
   initialAnswer?: string;
@@ -24,6 +25,7 @@ const statusConfig: Record<TestTaskStatus, { label: string; variant: string }> =
 
 export function TestTaskView({
   cohortId,
+  applicationId,
   testTask,
   initialStatus,
   initialAnswer,
@@ -39,19 +41,29 @@ export function TestTaskView({
     setTimeout(() => setToast(null), 3000);
   };
 
+  const sendAnswer = async () => {
+    // Отправляем ответ через PUT /applications/:id/test-answer
+    if (!applicationId) {
+      throw new Error("Невозможно отправить ответ без ID заявки");
+    }
+    const res = await api.testTask.submitTestAnswer(applicationId, answer.trim());
+    return res;
+  };
+
   const handleSubmit = async () => {
     if (!answer.trim()) return;
     setSubmitting(true);
     try {
-      await api.testTask.submitAnswer(cohortId, answer);
+      await sendAnswer();
       setStatus("pending");
       showToast("success", "Задание успешно отправлено на проверку!");
       // Редирект в лк через 1.5с
       setTimeout(() => {
         router.push("/cabinet");
       }, 1500);
-    } catch {
-      showToast("error", "Ошибка при отправке. Попробуйте ещё раз.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Ошибка при отправке";
+      showToast("error", `${message}. Попробуйте ещё раз.`);
     } finally {
       setSubmitting(false);
     }
@@ -60,14 +72,15 @@ export function TestTaskView({
   const handleResubmit = async () => {
     setSubmitting(true);
     try {
-      await api.testTask.submitAnswer(cohortId, answer);
+      await sendAnswer();
       setStatus("pending");
       showToast("success", "Задание успешно отправлено на проверку!");
       setTimeout(() => {
         router.push("/cabinet");
       }, 1500);
-    } catch {
-      showToast("error", "Ошибка при отправке. Попробуйте ещё раз.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Ошибка при отправке";
+      showToast("error", `${message}. Попробуйте ещё раз.`);
     } finally {
       setSubmitting(false);
     }
