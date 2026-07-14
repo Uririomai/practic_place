@@ -13,12 +13,13 @@ router.use(authMiddleware);
  *   get:
  *     tags:
  *       - Profile
- *     summary: Get current user profile
+ *     summary: Get current user
+ *     description: Returns basic user info including activeCohortId.
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: UserProfile
+ *         description: Current user
  *         content:
  *           application/json:
  *             schema:
@@ -26,7 +27,48 @@ router.use(authMiddleware);
  *       401:
  *         description: Unauthorized
  */
-router.get("/", (req, res) => {
+router.get("/", async (req, res, next) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) return res.sendStatus(401);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        activeCohortId: true,
+        createdAt: true,
+        profile: true,
+      },
+    });
+
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND", message: "User not found" });
+    res.json(user);
+  } catch (e) {
+    next(e);
+  }
+});
+
+
+/**
+ * @openapi
+ * /me/profile:
+ *   get:
+ *     tags:
+ *       - Profile
+ *     summary: Get full user profile
+ *     description: Returns complete user info with applications, documents, tasks.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Full user profile
+ *       401:
+ *         description: Unauthorized
+ */
+router.get("/profile", (req, res) => {
   const userId = req.user?.sub;
   if (!userId) return res.sendStatus(401);
   res.redirect(301, `/users/${userId}/profile`);
