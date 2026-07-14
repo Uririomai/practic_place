@@ -4,58 +4,107 @@ import { useState, useEffect, useCallback } from "react";
 import { CohortFilter } from "@/components/admin/CohortFilter";
 import { DocumentsTable } from "@/components/admin/DocumentsTable";
 import { api } from "@/shared/api/client";
-import { Cohort, Application, ApplicationFile } from "@/shared/api/types";
+import { Cohort, AdminDocumentData, CohortStudent } from "@/shared/api/types";
 
 export default function AdminDocumentsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
-  const [applications, setApplications] = useState<(Application & { files?: ApplicationFile[] })[]>([]);
+  const [documents, setDocuments] = useState<AdminDocumentData[]>([]);
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
 
-  const loadApplications = async () => {
-    try {
-      const appsData = await api.admin.getApplicationsWithFiles().catch((e) => {
-        console.error("Ошибка загрузки заявок:", e);
-        return [] as (Application & { files?: ApplicationFile[] })[];
-      });
-      setApplications(appsData);
-    } catch {}
-  };
-
-  const loadData = async () => {
-    try {
-      const cohortsData = await api.cohorts.list().catch(() => [] as Cohort[]);
-      setCohorts(cohortsData);
-      await loadApplications();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Автоматически выбираем первую когорту при загрузке
-  useEffect(() => {
-    if (!loading && cohorts.length > 0 && !selectedCohortId) {
-      handleCohortChange(cohorts[0].id);
-    }
-  }, [loading, cohorts]);
-
-  const handleCohortChange = useCallback(async (cohortId: string) => {
-    setSelectedCohortId(cohortId);
+  // Загрузка документов для когорты
+  const loadDocuments = useCallback(async (cohortId: string) => {
     setSwitching(true);
     try {
-      await api.auth.updateActiveCohort(cohortId);
-      await loadApplications();
-    } catch (e) {
-      console.error("Ошибка смены когорты:", e);
+      // Получаем студентов когорты
+      const students = await api.cohorts.getStudents(cohortId);
+
+      // Для каждого студента загружаем документы и отчёт
+      const docs = await Promise.all(
+        students.map(async (s) => {
+          const base: AdminDocumentData = {
+            user: {
+              id: s.user.id,
+              email: s.user.email,
+              fio: s.user.profile?.student_fio || s.user.email,
+            },
+            applicationId: s.application.id,
+            cohort: { id: cohortId, name: "" },
+            role: s.application.role,
+          };
+
+          try {
+            // ИЗ
+            const iz = await api.studentDocument.get(s.application.id);
+            base.iz = iz;
+          } catch {}
+
+          try {
+            // Заявка с файлами
+            const app = await api.admin.getApplication(s.application.id);
+            base.cohort = app.cohort || base.cohort;
+            const report = app.files?.find((f) => f.type === "REPORT");
+            if (report) base.report = report;
+          } catch {}
+
+          try {
+            // Доступные документы
+            const docs = await api.documents.list(s.application.id);
+            base.documents = docs;
+          } catch {}
+
+          try {
+            // Отзыв — загружаем из doc-data
+            const docData = await api.studentDocument.get(s.application.id);
+            base.review = {
+              id: docData.id,
+              applicationId: s.application.id,
+              review_activities: (docData as any).review_activities || "",
+              review_characteristic: (docData as any).review_characteristic || "",
+              review_employed: (docData as any).review_employed || false,
+              review_next_practice: (docData as any).review_next_practice || false,
+              review_employment_offer: (docData as any).review_employment_offer || false,
+              review_suggestions: (docData as any).review_suggestions || "",
+              review_grade: (docData as any).review_grade || "",
+            };
+          } catch {}
+
+          return base;
+        })
+      );
+
+      setDocuments(docs);
+    } catch (err) {
+      console.error("Ошибка загрузки документов:", err);
+      setDocuments([]);
     } finally {
       setSwitching(false);
     }
   }, []);
+
+  // Загрузка списка когорт
+  useEffect(() => {
+    api.cohorts
+      .list()
+      .then((data) => {
+        setCohorts(data);
+        if (data.length > 0) {
+          setSelectedCohortId(data[0].id);
+          loadDocuments(data[0].id);
+        }
+      })
+      .catch(() => setCohorts([]))
+      .finally(() => setLoading(false));
+  }, [loadDocuments]);
+
+  const handleCohortChange = useCallback(
+    (cohortId: string) => {
+      setSelectedCohortId(cohortId);
+      loadDocuments(cohortId);
+    },
+    [loadDocuments]
+  );
 
   if (loading) {
     return (
@@ -72,7 +121,7 @@ export default function AdminDocumentsPage() {
       <div>
         <h1 className="text-2xl font-bold">Документы</h1>
         <p className="text-muted-foreground">
-          Просмотр отчётов студентов
+          Просмотр отчётов и документов студентов
         </p>
       </div>
 
@@ -88,8 +137,8 @@ export default function AdminDocumentsPage() {
         </div>
       ) : (
         <DocumentsTable
-          applications={applications}
-          onRefresh={loadApplications}
+          documents={documents}
+          onRefresh={() => selectedCohortId && loadDocuments(selectedCohortId)}
         />
       )}
     </div>
