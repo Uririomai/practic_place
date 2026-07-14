@@ -7,11 +7,13 @@ import {
 	TestTask,
 	UserTestTask,
 	StudentDocumentData,
+	ReviewData,
 	TaskCard,
 	CreateTaskCardDto,
 	UpdateTaskCardDto,
 	UpdateStudentDocumentDto,
 	CohortParticipant,
+	CohortStudent,
 	CreateCohortDto,
 	UpdateCohortDto,
 	SaveSurveyFieldsDto,
@@ -155,6 +157,7 @@ export const api = {
 	},
 
 	users: {
+		getMe: () => apiClient.request<User>('/me'),
 		getProfile: (userId: string) =>
 			apiClient.request<StudentProfile>(`/users/${userId}/profile`),
 		updateProfile: (userId: string, profile: UserProfile) =>
@@ -176,6 +179,8 @@ export const api = {
 		active: () => apiClient.request<Cohort[]>('/cohorts/active'),
 		get: (cohortId: string) =>
 			apiClient.request<Cohort>(`/cohorts/${cohortId}`),
+		getStudents: (cohortId: string) =>
+			apiClient.request<CohortStudent[]>(`/cohorts/${cohortId}/students`),
 	},
 
 	survey: {
@@ -263,11 +268,23 @@ export const api = {
 			apiClient.request<StudentDocumentData>(
 				`/applications/${applicationId}/doc-data`,
 				{
-					method: 'PATCH',
+					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(data),
 				},
 			),
+	},
+
+	// Отзыв
+	review: {
+		get: (applicationId: string) =>
+			apiClient.request<ReviewData>(`/applications/${applicationId}/review`),
+		save: (applicationId: string, data: Partial<ReviewData>) =>
+			apiClient.request<ReviewData>(`/applications/${applicationId}/review`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data),
+			}),
 	},
 
 	// Новые эндпоинты документов (реальный бэкенд)
@@ -488,6 +505,22 @@ export const api = {
 					method: 'DELETE',
 				},
 			),
+		updateDocumentTemplate: (
+			cohortId: string,
+			templateId: string,
+			file?: File,
+			name?: string,
+			slug?: string,
+		) => {
+			const formData = new FormData()
+			if (file) formData.append('file', file)
+			if (name) formData.append('name', name)
+			if (slug) formData.append('slug', slug)
+			return apiClient.request<{ id: string; name: string }>(
+				`/cohorts/${cohortId}/document-templates/${templateId}`,
+				{ method: 'PATCH', body: formData },
+			)
+		},
 
 		// Эндпоинт для моков - использует question как legacy-поле
 		saveTestTaskLegacy: (cohortId: string, question: string) =>

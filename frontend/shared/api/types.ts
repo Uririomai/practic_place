@@ -114,6 +114,12 @@ export interface StudentDocumentData {
   specialty: string;
   practice_topic: string;
   main_stage_tasks: string;
+}
+
+// Отзыв — данные для генерации документа
+export interface ReviewData {
+  id: string;
+  applicationId: string;
   review_activities: string;
   review_characteristic: string;
   review_employed: boolean;
@@ -121,8 +127,6 @@ export interface StudentDocumentData {
   review_employment_offer: boolean;
   review_suggestions: string;
   review_grade: string;
-  report_file_url?: string;
-  report_admin_approved: boolean;
 }
 
 // Шаблон документа с информацией о доступности
@@ -181,6 +185,39 @@ export interface UpdateStudentDocumentDto {
   specialty?: string;
   practice_topic?: string;
   main_stage_tasks?: string;
+  // Отзыв
+  review_activities?: string;
+  review_characteristic?: string;
+  review_employed?: boolean;
+  review_next_practice?: boolean;
+  review_employment_offer?: boolean;
+  review_suggestions?: string;
+  review_grade?: string;
+}
+
+// Участник когорты (GET /cohorts/:id/students)
+export interface CohortStudent {
+  user: {
+    id: string;
+    email: string;
+    profile?: Record<string, string>;
+  };
+  application: {
+    id: string;
+    status: string;
+    role?: {
+      id: string;
+      name: string;
+    };
+  };
+  tasks: {
+    id: string;
+    date: string;
+    title: string;
+    description: string;
+    artifactLink: string;
+    updatedAt: string;
+  }[];
 }
 
 // Участник когорты (для вкладки «Задачи» — режим «Показать всех»)
@@ -241,20 +278,19 @@ export interface AdminApplication extends ApplicationWithTest {
   answers?: ApplicationAnswer[];
 }
 
-export interface AdminDocumentData extends StudentDocumentData {
+export interface AdminDocumentData {
   user: Pick<User, 'id' | 'email' | 'fio'>;
+  applicationId: string;
   cohort: Pick<Cohort, 'id' | 'name'>;
   role?: CohortRole;
-}
-
-export interface SaveReviewDto {
-  review_activities: string;
-  review_characteristic: string;
-  review_employed: boolean;
-  review_next_practice: boolean;
-  review_employment_offer: boolean;
-  review_suggestions: string;
-  review_grade: string;
+  // ИЗ — данные индивидуального задания
+  iz?: StudentDocumentData;
+  // Отзыв
+  review?: ReviewData;
+  // Отчёт
+  report?: ApplicationFile;
+  // Доступные документы
+  documents?: DocumentTemplateAvailability[];
 }
 
 // ===== Student Profile =====
