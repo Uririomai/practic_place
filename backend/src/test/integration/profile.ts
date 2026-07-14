@@ -5,11 +5,34 @@ import { app, request, seedUsers, seedCohort } from "../integration.helpers.js";
 // Profile
 // ===========================================================================
 describe("GET /me", () => {
-  it("redirects to /users/:id/profile", async () => {
+  it("returns current user object", async () => {
     const { studentToken } = await seedUsers();
 
     const res = await request(app)
       .get("/me")
+      .set("Authorization", `Bearer ${studentToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("id");
+    expect(res.body).toHaveProperty("email");
+    expect(res.body).toHaveProperty("role");
+    expect(res.body).toHaveProperty("activeCohortId");
+    expect(res.body).toHaveProperty("createdAt");
+    expect(res.body).not.toHaveProperty("applications");
+  });
+
+  it("returns 401 without token", async () => {
+    const res = await request(app).get("/me");
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /me/profile", () => {
+  it("redirects to /users/:id/profile", async () => {
+    const { studentToken } = await seedUsers();
+
+    const res = await request(app)
+      .get("/me/profile")
       .set("Authorization", `Bearer ${studentToken}`);
 
     expect(res.status).toBe(301);
@@ -17,7 +40,7 @@ describe("GET /me", () => {
   });
 
   it("returns 401 without token", async () => {
-    const res = await request(app).get("/me");
+    const res = await request(app).get("/me/profile");
     expect(res.status).toBe(401);
   });
 });
