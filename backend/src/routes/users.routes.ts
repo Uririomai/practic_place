@@ -256,6 +256,8 @@ router.get("/:id", async (req, res, next) => {
  *                 type: string
  *               profile:
  *                 type: object
+ *               activeCohortId:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Updated user
@@ -273,12 +275,20 @@ router.patch("/:id", async (req, res, next) => {
     if (userId !== targetId && req.user!.role !== "ADMIN")
       throw new AppError("FORBIDDEN", 403, "Can only update own profile");
 
-    const { email, profile } = req.body;
+    const { email, profile, activeCohortId } = req.body;
 
     const data: Record<string, unknown> = {};
     if (email !== undefined) {
       if (req.user!.role !== "ADMIN") throw new AppError("FORBIDDEN", 403, "Only admins can change email");
       data.email = email;
+    }
+    if (activeCohortId !== undefined) {
+      if (req.user!.role !== "ADMIN") throw new AppError("FORBIDDEN", 403, "Only admins can change active cohort");
+      if (activeCohortId !== null) {
+        const cohort = await prisma.cohort.findUnique({ where: { id: activeCohortId } });
+        if (!cohort) throw new AppError("COHORT_NOT_FOUND", 404, "Cohort not found");
+      }
+      data.activeCohortId = activeCohortId;
     }
     // ponytail: merge profile instead of replace — spread existing into new
     if (profile !== undefined) {

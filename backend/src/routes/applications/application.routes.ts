@@ -431,6 +431,14 @@ router.patch("/:id/review", requireAdmin, async (req, res, next) => {
       },
     });
 
+    // ponytail: auto-set student's activeCohortId on approval
+    if (status === "APPROVED") {
+      await prisma.user.update({
+        where: { id: application.userId },
+        data: { activeCohortId: application.cohortId },
+      });
+    }
+
     res.json(updated);
   } catch (e) {
     next(e);
