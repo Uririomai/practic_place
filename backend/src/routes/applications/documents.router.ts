@@ -201,6 +201,9 @@ router.get(
 
           include: {
             files: true,
+            user: {
+              select: { profile: true },
+            },
           },
         });
 
@@ -274,10 +277,14 @@ router.get(
         where: { applicationId: application.id },
       });
 
+      // ponytail: merge user.profile as base, docData overrides
+      const userData = (application.user.profile ?? {}) as Record<string, unknown>;
+      const docDataObj = (docData?.data ?? {}) as Record<string, unknown>;
+      const mergedData = { ...userData, ...docDataObj };
 
       const file = await generateDocument(
         template.uri,
-        (docData?.data ?? {}) as Record<string, unknown>,
+        mergedData,
       );
 
 
@@ -285,6 +292,74 @@ router.get(
         .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         .send(file);
 
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+
+/**
+ * @openapi
+ * /applications/{id}/doc-data:
+ *   put:
+ *     tags:
+ *       - Documents
+ *     summary: Save document data
+ *     description: Saves JSON fields for document generation. Merges with user.profile on generation (doc-data overrides profile).
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Document data saved
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Application not found
+ */
+router.put(
+  "/:id/doc-data",
+  async (req, res, next) => {
+    try {
+      const userId = req.user!.sub;
+      const isAdmin = req.user!.role === "ADMIN";
+
+      const application = await prisma.application.findUnique({
+        where: { id: req.params.id },
+      });
+
+      if (!application) {
+        throw new AppError("APPLICATION_NOT_FOUND", 404, "Application not found");
+      }
+
+      if (!isAdmin && application.userId !== userId) {
+        throw new AppError("FORBIDDEN", 403, "Access denied");
+      }
+
+      const docData = await prisma.documentData.upsert({
+        where: { applicationId: application.id },
+        create: {
+          applicationId: application.id,
+          data: req.body,
+        },
+        update: {
+          data: req.body,
+        },
+      });
+
+      res.json(docData);
     } catch (e) {
       next(e);
     }
