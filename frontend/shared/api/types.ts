@@ -15,13 +15,27 @@ export interface AuthResponse {
 }
 
 // Сущности
+
+export interface UserProfile {
+  student_fio?: string;
+  group?: string;
+  direction_code?: string;
+  direction_name?: string;
+  program_name?: string;
+  specialty?: string;
+  practice_topic?: string;
+  main_stage_tasks?: string;
+}
+
 export interface User {
   id: string;
   email: string;
   fio?: string; // Опционально: бэкенд может не возвращать
   role: "student" | "admin";
   activeCohortId?: string;
+  activeRole?: Pick<CohortRole, 'id' | 'name'>;
   createdAt: string;
+  profile?: UserProfile;
 }
 
 export interface Cohort {
@@ -43,7 +57,7 @@ export interface SurveyField {
   required?: boolean;
 }
 
-export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'TEST_ASSIGNED';
 
 export interface Application {
   id: string;
@@ -55,6 +69,7 @@ export interface Application {
   createdAt: string;
   cohort?: Pick<Cohort, 'id' | 'name'>;
   role?: Pick<CohortRole, 'id' | 'name'>;
+  user?: Pick<User, 'id' | 'email'>;
 }
 
 // Заявка со статусом тестового задания
@@ -75,6 +90,7 @@ export type TestTaskStatus = 'not_submitted' | 'pending' | 'approved' | 'rejecte
 export interface TestTask {
   id: string;
   cohortId: string;
+  roleId: string;
   content: string;
   publishedAt?: string;
 }
@@ -107,6 +123,27 @@ export interface StudentDocumentData {
   review_grade: string;
   report_file_url?: string;
   report_admin_approved: boolean;
+}
+
+// Шаблон документа с информацией о доступности
+export interface DocumentTemplateAvailability {
+  id: string;
+  name: string;
+  slug: string;
+  available: boolean;
+  reason?: string;
+}
+
+// Файл заявки (отчёт)
+export interface ApplicationFile {
+  id: string;
+  applicationId: string;
+  type: string;
+  storageUri: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  comment?: string;
+  uploadedAt: string;
+  reviewedAt?: string;
 }
 
 export interface TaskCard {
@@ -162,6 +199,7 @@ export interface CreateCohortDto {
   applicationEnd: string;
   practiceStart: string;
   practiceEnd: string;
+  description?: string;
 }
 
 export interface UpdateCohortDto {
@@ -181,15 +219,26 @@ export interface SaveCohortRolesDto {
 }
 
 export interface SaveTestTaskDto {
+  roleId: string;
   content: string;
+  publishedAt?: string;
 }
 
 // Заявка с информацией о пользователе (для админки)
+export interface ApplicationAnswer {
+  id: string;
+  applicationId: string;
+  fieldId: string;
+  value: string;
+  field: { id: string; label: string; type: string; order?: number };
+}
+
 export interface AdminApplication extends ApplicationWithTest {
   user: Pick<User, 'id' | 'email' | 'fio'>;
-  cohort: Pick<Cohort, 'id' | 'name'>;
+  cohort: Pick<Cohort, 'id' | 'name' | 'applicationStart' | 'applicationEnd' | 'practiceStart' | 'practiceEnd'>;
   role?: CohortRole;
   surveyData?: Record<string, string>;
+  answers?: ApplicationAnswer[];
 }
 
 export interface AdminDocumentData extends StudentDocumentData {
