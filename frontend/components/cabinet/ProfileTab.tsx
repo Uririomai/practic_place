@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/shared/hooks/use-auth";
-import { useSurveyData } from "@/shared/hooks/use-survey-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,31 +14,50 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  User,
+  User as UserIcon,
   Mail,
   Calendar,
   Hash,
   Pencil,
   GraduationCap,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/shared/api/client";
-import { SurveyField } from "@/shared/api/types";
+import { UserProfile, Cohort } from "@/shared/api/types";
 
-const COHORT_ID = "test-cohort-id";
+/** Мета полей профиля */
+const PROFILE_FIELDS: Array<{
+  key: keyof UserProfile;
+  label: string;
+  type: "input" | "textarea";
+  placeholder?: string;
+}> = [
+  { key: "student_fio", label: "ФИО студента", type: "input", placeholder: "Иванов Иван Иванович" },
+  { key: "group", label: "Группа", type: "input", placeholder: "РИ-330930" },
+  { key: "direction_code", label: "Код направления", type: "input", placeholder: "09.03.03" },
+  { key: "direction_name", label: "Наименование направления", type: "input", placeholder: "Прикладная информатика" },
+  { key: "program_name", label: "Наименование образовательной программы", type: "input" },
+  { key: "specialty", label: "Специальность", type: "input", placeholder: "Направление подготовки" },
+  { key: "practice_topic", label: "Тема практики", type: "input", placeholder: "Тема задания" },
+  { key: "main_stage_tasks", label: "Перечень работ основного этапа", type: "textarea", placeholder: "Список задач" },
+];
+
+/** Проверка: заполнен ли профиль */
+function isProfileEmpty(profile?: UserProfile): boolean {
+  if (!profile) return true;
+  return PROFILE_FIELDS.every((f) => !profile[f.key]?.trim());
+}
 
 export function ProfileTab() {
-  const { user } = useAuth();
-  const { data: surveyData, setData: setSurveyData } = useSurveyData(COHORT_ID);
-  const [fields, setFields] = useState<SurveyField[]>([]);
+  const { user, setUser } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  useEffect(() => {
-    api.survey.getFields(COHORT_ID).then(setFields).catch(() => {});
-  }, []);
+  const profile = user?.profile;
+  const profileEmpty = isProfileEmpty(profile);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -47,27 +65,30 @@ export function ProfileTab() {
   };
 
   const openModal = () => {
-    setForm({ ...surveyData });
+    // Заполняем форму текущими данными профиля
+    const formData: Record<string, string> = {};
+    PROFILE_FIELDS.forEach((f) => {
+      formData[f.key] = profile?.[f.key] || "";
+    });
+    setForm(formData);
     setModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!user) return;
     setSaving(true);
-    setTimeout(() => {
-      setSurveyData(form);
+    try {
+      const updated = await api.users.updateProfile(user.id, form as UserProfile);
+      // Обновляем user в useAuth
+      setUser(updated);
       setModalOpen(false);
-      setSaving(false);
       showToast("success", "Данные профиля обновлены");
-    }, 300);
+    } catch {
+      showToast("error", "Не удалось сохранить данные");
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const sortedFields = [...fields].sort((a, b) => a.order - b.order);
-
-  // Маппинг полей анкеты для отображения
-  const surveyDisplay: Array<{ label: string; value: string }> = sortedFields.map((f) => ({
-    label: f.label,
-    value: surveyData[f.id] || "",
-  }));
 
   return (
     <div className="space-y-6">
@@ -88,12 +109,34 @@ export function ProfileTab() {
         <p className="text-muted-foreground">Информация о вашем аккаунте</p>
       </div>
 
-      {/* Карточка: пользователь + данные анкеты */}
+      {/* Предупреждение: профиль не заполнен */}
+      {profileEmpty && (
+        <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-5 flex items-start gap-4">
+          <div className="shrink-0 mt-0.5">
+            <AlertTriangle className="h-5 w-5 text-yellow-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-yellow-800">Заполните данные профиля</p>
+            <p className="mt-1 text-sm text-yellow-700">
+              Чтобы продолжить работу с платформой, заполните основные данные: ФИО, группа, код направления и другие поля.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={openModal}
+            className="shrink-0 bg-yellow-600 hover:bg-yellow-700 text-white"
+          >
+            Заполнить данные
+          </Button>
+        </div>
+      )}
+
+      {/* Карточка: пользователь */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
+              <UserIcon className="h-5 w-5" />
               Данные пользователя
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={openModal}>
@@ -105,7 +148,7 @@ export function ProfileTab() {
           {/* Аватар + email */}
           <div className="flex items-center gap-3">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <User className="h-8 w-8" />
+              <UserIcon className="h-8 w-8" />
             </div>
             <div>
               <p className="text-lg font-semibold">{user?.email || "—"}</p>
@@ -146,45 +189,63 @@ export function ProfileTab() {
             </div>
           </div>
 
-          {/* Данные анкеты */}
-          {surveyDisplay.length > 0 && (
-            <div className="grid gap-4 border-t pt-4">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium text-muted-foreground">
-                  Данные анкеты
-                </p>
+          {/* Данные профиля */}
+          <div className="grid gap-4 border-t pt-4">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-medium text-muted-foreground">
+                Данные профиля
+              </p>
+            </div>
+            {PROFILE_FIELDS.map((field) => (
+              <div key={field.key} className="flex items-start gap-3 pl-7">
+                <div>
+                  <p className="text-sm text-muted-foreground">{field.label}</p>
+                  <p className="font-medium">{profile?.[field.key] || "—"}</p>
+                </div>
               </div>
-              {surveyDisplay.map((item) => (
-                <div key={item.label} className="flex items-start gap-3 pl-7">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{item.label}</p>
-                    <p className="font-medium">{item.value || "—"}</p>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Когорты */}
+      {user?.cohorts && user.cohorts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Практики</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {user.cohorts.map((cohort: Cohort) => (
+                <div
+                  key={cohort.id}
+                  className={`rounded-lg border p-4 ${
+                    cohort.id === user.activeCohortId
+                      ? "border-primary bg-primary/5"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-medium">{cohort.name}</p>
+                    {cohort.id === user.activeCohortId && (
+                      <Badge className="bg-primary text-xs">Активная</Badge>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>
+                      Практика: {new Date(cohort.practiceStart).toLocaleDateString("ru-RU")} — {new Date(cohort.practiceEnd).toLocaleDateString("ru-RU")}
+                    </p>
+                    <p>
+                      Заявки: {new Date(cohort.applicationStart).toLocaleDateString("ru-RU")} — {new Date(cohort.applicationEnd).toLocaleDateString("ru-RU")}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Текущая практика */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Текущая практика</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 px-3 py-1.5">
-              <p className="text-sm font-medium text-primary">Тестовая когорта</p>
-            </div>
-            <Badge variant="outline">Активна</Badge>
-          </div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Летняя практика 2024 — Июль-Август
-          </p>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Модалка редактирования */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -193,49 +254,28 @@ export function ProfileTab() {
             <DialogTitle>Редактирование профиля</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Поля анкеты */}
-            {sortedFields.map((field) => (
-              <div key={field.id}>
+            {PROFILE_FIELDS.map((field) => (
+              <div key={field.key}>
                 <label className="mb-1.5 block text-sm font-medium">
                   {field.label}
-                  {field.required && (
-                    <span className="ml-1 text-destructive">*</span>
-                  )}
                 </label>
-                {field.type === "text" && (
-                  <Input
-                    value={form[field.id] || ""}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, [field.id]: e.target.value }))
-                    }
-                    placeholder={field.placeholder}
-                  />
-                )}
-                {field.type === "textarea" && (
+                {field.type === "textarea" ? (
                   <Textarea
-                    value={form[field.id] || ""}
+                    value={form[field.key] || ""}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, [field.id]: e.target.value }))
+                      setForm((f) => ({ ...f, [field.key]: e.target.value }))
                     }
                     placeholder={field.placeholder}
                     rows={3}
                   />
-                )}
-                {field.type === "select" && field.options && (
-                  <select
-                    value={form[field.id] || ""}
+                ) : (
+                  <Input
+                    value={form[field.key] || ""}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, [field.id]: e.target.value }))
+                      setForm((f) => ({ ...f, [field.key]: e.target.value }))
                     }
-                    className="w-full rounded-md border border-input bg-background px-3 py-2"
-                  >
-                    <option value="">Выберите...</option>
-                    {field.options.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder={field.placeholder}
+                  />
                 )}
               </div>
             ))}

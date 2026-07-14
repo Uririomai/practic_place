@@ -23,8 +23,8 @@ import {
   Plus,
 } from "lucide-react";
 import { api } from "@/shared/api/client";
+import { useAuth } from "@/shared/hooks/use-auth";
 import { TaskCard, CreateTaskCardDto, CohortParticipant } from "@/shared/api/types";
-import { mockCohort } from "@/src/mocks/fixtures";
 import {
   startOfWeek,
   endOfWeek,
@@ -38,8 +38,6 @@ import {
   isWithinInterval,
 } from "date-fns";
 import { ru } from "date-fns/locale";
-
-const COHORT_ID = "test-cohort-id";
 
 /** Дата и время обновления: «1 июля, 14:30» */
 function formatUpdatedAt(dateStr: string): string {
@@ -62,49 +60,125 @@ function roleBadgeColor(role: string): string {
 }
 
 export function TasksTab() {
+  const { user } = useAuth();
   const [cards, setCards] = useState<TaskCard[]>([]);
   const [participants, setParticipants] = useState<CohortParticipant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false); // По умолчанию только свои
+  const [showAll, setShowAll] = useState(false);
 
-  const practiceStart = parseISO(mockCohort.practiceStart);
-  const practiceEnd = parseISO(mockCohort.practiceEnd);
+  // Одобренная заявка и её applicationId
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [approvedApp, setApprovedApp] = useState<any>(null);
 
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+  // Когорта: из user.activeCohortId + user.cohorts
+  const cohort = useMemo(() => {
+    if (!user) return null;
+    // Ищем когорту по activeCohortId в массиве cohorts
+    const found = user.cohorts?.find((c) => c.id === user.activeCohortId);
+    return found || user.cohorts?.[0] || null;
+  }, [user]);
+
+  // Даты практики из когорты (мемоизированы, чтобы не пересоздавать Date каждый рендер)
+  const practiceStart = useMemo(
+    () => cohort?.practiceStart ? parseISO(cohort.practiceStart) : null,
+    [cohort?.practiceStart]
+  );
+  const practiceEnd = useMemo(
+    () => cohort?.practiceEnd ? parseISO(cohort.practiceEnd) : null,
+    [cohort?.practiceEnd]
+  );
+
+  // Вычисляем начальную неделю: первая неделя практики или текущая (если практика идёт)
+  const getInitialWeek = (pStart: Date | null, pEnd: Date | null): Date => {
     const today = new Date();
-    const week = startOfWeek(today, { weekStartsOn: 1 });
-    if (week < practiceStart) return startOfWeek(practiceStart, { weekStartsOn: 1 });
-    if (week > practiceEnd) return startOfWeek(practiceStart, { weekStartsOn: 1 });
-    return week;
-  });
+    if (!pStart || !pEnd) return startOfWeek(today, { weekStartsOn: 1 });
+    const firstPracticeWeek = startOfWeek(pStart, { weekStartsOn: 1 });
+    const lastPracticeWeek = startOfWeek(pEnd, { weekStartsOn: 1 });
+    const currentWeek = startOfWeek(today, { weekStartsOn: 1 });
+    // Если практика ещё не началась — первая неделя практики
+    if (today < pStart) return firstPracticeWeek;
+    // Если практика идёт — текущая неделя (ограниченная пределами практики)
+    if (currentWeek < firstPracticeWeek) return firstPracticeWeek;
+    if (currentWeek > lastPracticeWeek) return lastPracticeWeek;
+    return currentWeek;
+  };
 
-  // Модальное окно редактирования (свои задачи)
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => getInitialWeek(null, null));
+
+  // Модальное окно редактирования
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<TaskCard | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [form, setForm] = useState({ title: "", description: "", artifactLink: "" });
   const [saving, setSaving] = useState(false);
 
-  // Модальное окно просмотра (чужие задачи)
+  // Модальное окно просмотра (чужие задачи — пока заглушка)
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewingCard, setViewingCard] = useState<TaskCard | null>(null);
-  const [viewingParticipant, setViewingParticipant] = useState<CohortParticipant | null>(null);
 
   // Календарь
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Инициализация недели по дате начала практики (когда когорта загрузилась)
+  useEffect(() => {
+    if (practiceStart && practiceEnd) {
+      setCurrentWeekStart(getInitialWeek(practiceStart, practiceEnd));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceStart, practiceEnd]);
+
+  // Загрузка заявки студента
+  useEffect(() => {
+    if (!user?.id) return;
+    api.applications
+      .getMy()
+      .then((apps) => {
+        // Ищем одобренную заявку на активную когорту
+        const approved = apps.find(
+          (a) => a.status?.toLowerCase() === "approved" && a.cohortId === user.activeCohortId
+        );
+        const found = approved || apps.find((a) => a.status?.toLowerCase() === "approved") || apps[0];
+        if (found) {
+          setApplicationId(found.id);
+          setApprovedApp(found);
+        }
+      })
+      .catch(() => {});
+  }, [user?.id, user?.activeCohortId]);
+
+  // Загрузка задач
+  useEffect(() => {
+    if (!applicationId) return;
+    setLoading(true);
+    api.taskCards
+      .listByApplication(applicationId)
+      .then(setCards)
+      .catch(() => setCards([]))
+      .finally(() => setLoading(false));
+  }, [applicationId]);
+
+  // Загрузка участников (пока заглушка — пустой массив)
+  useEffect(() => {
+    if (!cohort?.id) return;
+    api.cohortParticipants
+      .list(cohort.id)
+      .then(setParticipants)
+      .catch(() => setParticipants([]));
+  }, [cohort?.id]);
+
   // Прогресс
   const totalWeeks = useMemo(() => {
+    if (!practiceStart || !practiceEnd) return 0;
     const start = startOfWeek(practiceStart, { weekStartsOn: 1 });
     const end = endOfWeek(practiceEnd, { weekStartsOn: 1 });
     return Math.round((end.getTime() - start.getTime()) / (7 * 86400000)) + 1;
-  }, []);
+  }, [practiceStart, practiceEnd]);
 
   const currentWeekNumber = useMemo(() => {
+    if (!practiceStart) return 0;
     const practiceWeekStart = startOfWeek(practiceStart, { weekStartsOn: 1 });
     return Math.round((currentWeekStart.getTime() - practiceWeekStart.getTime()) / (7 * 86400000)) + 1;
-  }, [currentWeekStart]);
+  }, [currentWeekStart, practiceStart]);
 
   // Дни недели (пн-пт)
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -113,44 +187,48 @@ export function TasksTab() {
   );
 
   const isWeekInPractice =
-    isWithinInterval(currentWeekStart, { start: practiceStart, end: practiceEnd }) ||
-    isWithinInterval(weekEnd, { start: practiceStart, end: practiceEnd });
+    practiceStart && practiceEnd &&
+    (isWithinInterval(currentWeekStart, { start: practiceStart, end: practiceEnd }) ||
+    isWithinInterval(weekEnd, { start: practiceStart, end: practiceEnd }));
 
   const weekLabel = `${format(currentWeekStart, "d MMM", { locale: ru })} — ${format(weekEnd, "d MMM yyyy", { locale: ru })}`;
 
-  // Загрузка
-  const loadCards = () => {
-    setLoading(true);
-    const weekStr = format(currentWeekStart, "yyyy-MM-dd");
-    api.taskCards
-      .list({ cohortId: COHORT_ID, date: weekStr })
-      .then(setCards)
-      .catch(() => setCards([]))
-      .finally(() => setLoading(false));
-  };
-
-  const loadParticipants = () => {
-    api.cohortParticipants
-      .list(COHORT_ID)
-      .then(setParticipants)
-      .catch(() => setParticipants([]));
-  };
-
-  useEffect(() => { loadCards(); }, [currentWeekStart]);
-  useEffect(() => { loadParticipants(); }, []);
-
   // Текущий пользователь
-  const currentUserId = "user-1";
+  const currentUserId = user?.id || "";
 
-  // Участники, отсортированные по ролям
+  // Роль текущего пользователя: сначала из заявки, потом из auth
+  const myRole = useMemo(() => {
+    return approvedApp?.role?.name || user?.activeRole?.name || "";
+  }, [approvedApp, user]);
+
+  // Гарантируем, что текущий пользователь всегда в списке участников
+  const participantsWithMe = useMemo(() => {
+    const hasMe = participants.some((p) => p.userId === currentUserId);
+    if (hasMe) return participants;
+    // Добавляем текущего пользователя из данных auth
+    const me: CohortParticipant = {
+      userId: currentUserId,
+      email: user?.email || "",
+      fio: user?.fio || user?.email || "Вы",
+      role: myRole,
+    };
+    return [me, ...participants];
+  }, [participants, currentUserId, user, myRole]);
+
+  // Участники: текущий пользователь всегда первый
   const sortedParticipants = useMemo(() => {
     if (showAll) {
-      return [...participants].sort((a, b) => a.role.localeCompare(b.role));
+      // Текущий пользователь всегда первый, остальные по ролям
+      const me = participantsWithMe.filter((p) => p.userId === currentUserId);
+      const others = participantsWithMe
+        .filter((p) => p.userId !== currentUserId)
+        .sort((a, b) => a.role.localeCompare(b.role));
+      return [...me, ...others];
     }
-    return participants.filter((p) => p.userId === currentUserId);
-  }, [participants, showAll]);
+    return participantsWithMe.filter((p) => p.userId === currentUserId);
+  }, [participantsWithMe, showAll, currentUserId]);
 
-  // Группировка по ролям (для заголовков групп)
+  // Группировка по ролям
   const roleGroups = useMemo(() => {
     const groups = new Map<string, CohortParticipant[]>();
     sortedParticipants.forEach((p) => {
@@ -161,15 +239,30 @@ export function TasksTab() {
     return groups;
   }, [sortedParticipants]);
 
-  // Получить карточку для дня и пользователя
-  const getCardForDay = (date: Date, userId: string): TaskCard | undefined => {
-    return cards.find((c) => c.userId === userId && isSameDay(parseISO(c.date), date));
+  // Проверка: дата в пределах практики
+  const isDayInPractice = (date: Date): boolean => {
+    if (!practiceStart || !practiceEnd) return false;
+    return isWithinInterval(date, { start: practiceStart, end: practiceEnd });
   };
 
-  // Открыть модалку создания/редактирования (свои задачи)
-  const openEditModal = (date: Date, userId: string, existing?: TaskCard) => {
+  // Получить карточку для дня и пользователя
+  // Задачи привязаны к applicationId, а не userId
+  const getCardForDay = (date: Date, userId: string): TaskCard | undefined => {
+    return cards.find((c) => {
+      const cardDate = parseISO(c.date);
+      // Если userId совпадает с текущим — ищем по applicationId
+      if (userId === currentUserId && applicationId) {
+        return c.applicationId === applicationId && isSameDay(cardDate, date);
+      }
+      // Для других участников — по userId (если есть) или applicationId
+      const cardUserId = c.userId || c.applicationId;
+      return cardUserId === userId && isSameDay(cardDate, date);
+    });
+  };
+
+  // Открыть модалку создания/редактирования
+  const openEditModal = (date: Date, existing?: TaskCard) => {
     setSelectedDate(format(date, "yyyy-MM-dd"));
-    setSelectedUserId(userId);
     if (existing) {
       setEditingCard(existing);
       setForm({
@@ -184,23 +277,16 @@ export function TasksTab() {
     setModalOpen(true);
   };
 
-  // Открыть модалку просмотра (чужие задачи)
-  const openViewModal = (card: TaskCard, participant: CohortParticipant) => {
-    setViewingCard(card);
-    setViewingParticipant(participant);
-    setViewModalOpen(true);
-  };
-
   // Optimistic save
   const handleSave = async () => {
-    if (!form.title.trim()) return;
+    if (!form.title.trim() || !applicationId) return;
     setSaving(true);
 
     const optimisticCard: TaskCard = editingCard
       ? { ...editingCard, ...form, updatedAt: new Date().toISOString() }
       : {
           id: "temp-" + Date.now(),
-          applicationId: selectedUserId,
+          applicationId,
           date: selectedDate,
           ...form,
           artifactLink: form.artifactLink || "",
@@ -215,11 +301,11 @@ export function TasksTab() {
 
     try {
       if (editingCard) {
-        const updated = await api.taskCards.update(editingCard.applicationId, editingCard.id, form);
+        const updated = await api.taskCards.update(applicationId, editingCard.id, form);
         setCards((prev) => prev.map((c) => (c.id === optimisticCard.id ? updated : c)));
       } else {
-        const data: CreateTaskCardDto = { applicationId: selectedUserId, date: selectedDate, ...form };
-        const created = await api.taskCards.create(selectedUserId, data);
+        const data: CreateTaskCardDto = { applicationId, date: selectedDate, ...form };
+        const created = await api.taskCards.create(applicationId, data);
         setCards((prev) => prev.map((c) => (c.id === optimisticCard.id ? created : c)));
       }
     } catch {
@@ -230,36 +316,73 @@ export function TasksTab() {
     }
   };
 
-  // Навигация
+  // Навигация по неделям (через timestamp для надёжного сравнения)
+  const minWeek = practiceStart ? startOfWeek(practiceStart, { weekStartsOn: 1 }).getTime() : 0;
+  const maxWeek = practiceEnd
+    ? startOfWeek(endOfWeek(practiceEnd, { weekStartsOn: 1 }), { weekStartsOn: 1 }).getTime()
+    : 0;
+
   const goToPrevWeek = () => {
     setCurrentWeekStart((w) => {
-      const prev = subWeeks(w, 1);
-      const min = startOfWeek(practiceStart, { weekStartsOn: 1 });
-      return prev < min ? min : prev;
+      if (!minWeek) return w;
+      const prev = subWeeks(w, 1).getTime();
+      return new Date(prev < minWeek ? minWeek : prev);
     });
   };
 
   const goToNextWeek = () => {
     setCurrentWeekStart((w) => {
-      const next = addWeeks(w, 1);
-      const max = startOfWeek(practiceEnd, { weekStartsOn: 1 });
-      return next > max ? max : next;
+      if (!maxWeek) return w;
+      const next = addWeeks(w, 1).getTime();
+      return new Date(next > maxWeek ? maxWeek : next);
     });
   };
 
-  const canGoPrev = currentWeekStart > startOfWeek(practiceStart, { weekStartsOn: 1 });
-  const canGoNext = currentWeekStart < startOfWeek(practiceEnd, { weekStartsOn: 1 });
+  const canGoPrev = minWeek > 0 && currentWeekStart.getTime() > minWeek;
+  const canGoNext = maxWeek > 0 && currentWeekStart.getTime() < maxWeek;
 
-  // Выбор даты в календаре — переходим к неделе, содержащей эту дату
+  // Выбор даты в календаре
   const handleCalendarSelect = (date: Date) => {
-    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-    // Ограничиваем пределами практики
-    const minWeek = startOfWeek(practiceStart, { weekStartsOn: 1 });
-    const maxWeek = startOfWeek(practiceEnd, { weekStartsOn: 1 });
-    const clamped = weekStart < minWeek ? minWeek : weekStart > maxWeek ? maxWeek : weekStart;
-    setCurrentWeekStart(clamped);
+    if (!minWeek || !maxWeek) return;
+    const weekStartMs = startOfWeek(date, { weekStartsOn: 1 }).getTime();
+    const clampedMs = weekStartMs < minWeek ? minWeek : weekStartMs > maxWeek ? maxWeek : weekStartMs;
+    setCurrentWeekStart(new Date(clampedMs));
     setCalendarOpen(false);
   };
+
+  // Состояние загрузки
+  if (!cohort) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-2xl font-bold">Задачи</h2>
+          <p className="text-muted-foreground">Ежедневный отчёт о выполненной работе</p>
+        </div>
+        <div className="rounded-lg border bg-muted/50 p-8 text-center">
+          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground">Загрузка данных когорты...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!applicationId && !loading) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-2xl font-bold">Задачи</h2>
+          <p className="text-muted-foreground">Ежедневный отчёт о выполненной работе</p>
+        </div>
+        <div className="rounded-lg border bg-muted/50 p-8 text-center">
+          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground">Нет одобренной заявки</p>
+          <p className="text-xs text-muted-foreground">
+            Подайте заявку и дождитесь одобрения для доступа к задачам
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Контент модалки
   const modalContent = (
@@ -331,7 +454,7 @@ export function TasksTab() {
                 {weekLabel}
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-background border shadow-lg" align="center">
+            <PopoverContent className="w-auto p-0 bg-background border shadow-lg" align="center" side="bottom">
               <Calendar
                 selected={currentWeekStart}
                 onSelect={handleCalendarSelect}
@@ -434,14 +557,17 @@ export function TasksTab() {
                       {weekDays.map((day) => {
                         const card = getCardForDay(day, participant.userId);
                         const isOwn = participant.userId === currentUserId;
-                        const canClick = isOwn || card; // Свои + чужие с карточкой
+                        const inPractice = isDayInPractice(day);
+                        // Можно кликать: свои (в пределах практики) или чужие с карточкой
+                        const canClick = (isOwn && inPractice) || card;
 
                         const handleClick = () => {
                           if (!canClick) return;
                           if (isOwn) {
-                            openEditModal(day, participant.userId, card);
+                            openEditModal(day, card);
                           } else if (card) {
-                            openViewModal(card, participant);
+                            setViewingCard(card);
+                            setViewModalOpen(true);
                           }
                         };
 
@@ -455,9 +581,9 @@ export function TasksTab() {
                                   ? isOwn
                                     ? "bg-primary/5 hover:bg-primary/10 border border-primary/20 cursor-pointer"
                                     : "bg-muted/50 border border-muted hover:bg-muted/70 cursor-pointer"
-                                  : isOwn
+                                  : isOwn && inPractice
                                     ? "hover:bg-muted border border-transparent hover:border-dashed hover:border-muted-foreground/30 cursor-pointer"
-                                    : "border border-transparent cursor-default"
+                                    : "border border-transparent cursor-default opacity-40"
                               }`}
                             >
                               {card ? (
@@ -496,7 +622,7 @@ export function TasksTab() {
         </div>
       )}
 
-      {/* Модалка редактирования (свои задачи) */}
+      {/* Модалка редактирования */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -513,17 +639,6 @@ export function TasksTab() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Просмотр задачи</DialogTitle>
-            {viewingParticipant && (
-              <div className="flex items-center gap-2 pt-1">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
-                  {viewingParticipant.fio.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                </div>
-                <span className="text-sm text-muted-foreground">{viewingParticipant.fio}</span>
-                <Badge variant="secondary" className={`text-[10px] ${roleBadgeColor(viewingParticipant.role)}`}>
-                  {viewingParticipant.role}
-                </Badge>
-              </div>
-            )}
           </DialogHeader>
           {viewingCard && (
             <div className="space-y-4 py-4">
@@ -565,4 +680,3 @@ export function TasksTab() {
     </div>
   );
 }
-

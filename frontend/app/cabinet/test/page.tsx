@@ -16,25 +16,45 @@ function TestPageContent() {
 
   const [testTask, setTestTask] = useState<TestTask | null>(null);
   const [userTestTask, setUserTestTask] = useState<UserTestTask | null>(null);
-  const [cohortId, setCohortId] = useState<string>("test-cohort-id");
+  const [cohortId, setCohortId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Если есть applicationId — загружаем данные заявки для получения cohortId
-    // Для мока используем test-cohort-id
-    const cid = "test-cohort-id";
-    setCohortId(cid);
+    if (!applicationId) {
+      setError("Не указан ID заявки");
+      setLoading(false);
+      return;
+    }
 
-    Promise.all([
-      api.testTask.get(cohortId).catch(() => []),
-      api.testTask.getMy(cohortId).catch(() => null),
-    ])
-      .then(([tasks, userTask]) => {
-        setTestTask(tasks[0] || null);
-        setUserTestTask(userTask);
+    // Загружаем заявку через GET /applications/:id, оттуда получаем cohortId и roleId
+    api.admin.getApplication(applicationId)
+      .then((data) => {
+        const cid = data.cohortId;
+        const roleId = data.roleId || data.role?.id;
+        setCohortId(cid);
+        // Пробуем загрузить тестовое задание для когорты
+        return api.testTask.get(cid)
+          .then((tasks) => {
+            // Находим тестовое задание, соответствующее роли студента
+            const matchedTask = roleId
+              ? tasks.find(t => t.roleId === roleId) ?? tasks[0] ?? null
+              : tasks[0] ?? null;
+            setTestTask(matchedTask);
+          })
+          .catch(() => {
+            // Если тест не загрузился — показываем заглушку
+            setTestTask({
+              id: "unknown",
+              cohortId: cid,
+              roleId: roleId || "",
+              content: "Тестовое задание пока не доступно. Обратитесь к администратору.",
+            });
+          });
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Не удалось загрузить данные заявки");
+      })
       .finally(() => setLoading(false));
   }, [applicationId]);
 
@@ -76,9 +96,10 @@ function TestPageContent() {
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <TestTaskView
             cohortId={cohortId}
+            applicationId={applicationId || ""}
             testTask={testTask}
-            initialStatus={(userTestTask?.status as TestTaskStatus) || "not_submitted"}
-            initialAnswer={userTestTask?.answer}
+            initialStatus="not_submitted"
+            initialAnswer=""
           />
         </div>
       )}
