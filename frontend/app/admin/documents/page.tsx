@@ -35,39 +35,36 @@ export default function AdminDocumentsPage() {
           };
 
           try {
-            // ИЗ
-            const iz = await api.studentDocument.get(s.application.id);
-            base.iz = iz;
-          } catch {}
-
-          try {
-            // Заявка с файлами
-            const app = await api.admin.getApplication(s.application.id);
+            // Заявка с файлами и docData
+            const app = await api.admin.getApplication(s.application.id) as any;
             base.cohort = app.cohort || base.cohort;
-            const report = app.files?.find((f) => f.type === "REPORT");
+            const report = app.files?.find((f: any) => f.type === "REPORT");
             if (report) base.report = report;
+            // Отзыв из docData.data полного ответа заявки
+            const rd = app?.docData?.data;
+            if (rd) {
+              base.review = {
+                id: app.docData.id,
+                applicationId: s.application.id,
+                review_activities: rd.review_activities || "",
+                review_characteristic: rd.review_characteristic || "",
+                review_employed: rd.review_employed || "нет",
+                review_next_practice: rd.review_next_practice || "нет",
+                review_employment_offer: rd.review_employment_offer || "нет",
+                review_suggestions: rd.review_suggestions || "",
+                review_grade: rd.review_grade || "",
+              };
+            }
+            // ИЗ из ответа заявки (если есть)
+            if (app?.docData?.data?.student_fio) {
+              base.iz = app.docData.data as any;
+            }
           } catch {}
 
           try {
             // Доступные документы
             const docs = await api.documents.list(s.application.id);
             base.documents = docs;
-          } catch {}
-
-          try {
-            // Отзыв — загружаем из doc-data
-            const docData = await api.studentDocument.get(s.application.id);
-            base.review = {
-              id: docData.id,
-              applicationId: s.application.id,
-              review_activities: (docData as any).review_activities || "",
-              review_characteristic: (docData as any).review_characteristic || "",
-              review_employed: (docData as any).review_employed || false,
-              review_next_practice: (docData as any).review_next_practice || false,
-              review_employment_offer: (docData as any).review_employment_offer || false,
-              review_suggestions: (docData as any).review_suggestions || "",
-              review_grade: (docData as any).review_grade || "",
-            };
           } catch {}
 
           return base;

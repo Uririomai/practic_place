@@ -77,7 +77,6 @@ export function CohortWizard({ open, onClose, onCreated }: CohortWizardProps) {
     applicationEnd: "",
     practiceStart: "",
     practiceEnd: "",
-    description: "",
   });
   const [roles, setRoles] = useState<{ name: string }[]>([]);
   const [surveyFields, setSurveyFields] = useState<SurveyFieldData[] | null>(null);

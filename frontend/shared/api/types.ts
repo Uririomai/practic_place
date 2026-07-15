@@ -122,9 +122,9 @@ export interface ReviewData {
   applicationId: string;
   review_activities: string;
   review_characteristic: string;
-  review_employed: boolean;
-  review_next_practice: boolean;
-  review_employment_offer: boolean;
+  review_employed: string;      // "да" / "нет"
+  review_next_practice: string; // "да" / "нет"
+  review_employment_offer: string; // "да" / "нет"
   review_suggestions: string;
   review_grade: string;
 }
@@ -236,7 +236,6 @@ export interface CreateCohortDto {
   applicationEnd: string;
   practiceStart: string;
   practiceEnd: string;
-  description?: string;
 }
 
 export interface UpdateCohortDto {

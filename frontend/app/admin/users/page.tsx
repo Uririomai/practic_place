@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { CohortFilter } from "@/components/admin/CohortFilter";
 import { api } from "@/shared/api/client";
 import { Cohort } from "@/shared/api/types";
 import { Search } from "lucide-react";
@@ -16,9 +16,6 @@ interface UserRow {
   role: string;
   cohortIds: string[];
   cohortNames: string[];
-  applicationStatus?: string;
-  testStatus?: string;
-  testAnswer?: string;
 }
 
 export default function AdminUsersPage() {
@@ -34,16 +31,13 @@ export default function AdminUsersPage() {
         const data = await api.admin.getUsers().catch(() => ({ users: [], cohorts: [], roles: [] }));
         setCohorts(data.cohorts || []);
 
-        // Формируем строки пользователей из ответа
-        const rows: UserRow[] = (data.users || []).map((u: Record<string, unknown> & { id: string; email: string; role: string; applications?: Array<{ cohortId: string; cohort?: { name: string }; status?: string; testAnswer?: string; role?: { name: string } }> }) => {
+        const rows: UserRow[] = (data.users || []).map((u: Record<string, unknown> & { id: string; email: string; role: string; applications?: Array<{ cohortId: string; cohort?: { name: string } }> }) => {
           const apps = u.applications || [];
           const cohortIds = [...new Set(apps.map((a) => a.cohortId))];
           const cohortNames = cohortIds.map((cid) => {
             const app = apps.find((a) => a.cohortId === cid);
             return app?.cohort?.name || data.cohorts?.find((c: { id: string }) => c.id === cid)?.name || "—";
           });
-          // Берём данные последней заявки
-          const lastApp = apps.length > 0 ? apps[apps.length - 1] : null;
           return {
             id: u.id,
             email: u.email,
@@ -51,8 +45,6 @@ export default function AdminUsersPage() {
             role: u.role,
             cohortIds,
             cohortNames,
-            applicationStatus: lastApp?.status,
-            testAnswer: lastApp?.testAnswer,
           };
         });
         setUsers(rows);
@@ -89,9 +81,7 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Пользователи</h1>
-        <p className="text-muted-foreground">
-          Управление пользователями системы
-        </p>
+        <p className="text-muted-foreground">Управление пользователями системы</p>
       </div>
 
       {/* Фильтры */}
@@ -105,25 +95,11 @@ export default function AdminUsersPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={selectedCohortId === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCohortId("all")}
-          >
-            Все когорты
-          </Button>
-          {cohorts.map((c) => (
-            <Button
-              key={c.id}
-              variant={selectedCohortId === c.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCohortId(c.id)}
-            >
-              {c.name}
-            </Button>
-          ))}
-        </div>
+        <CohortFilter
+          cohorts={[{ id: "all", name: "Все когорты", applicationStart: "", applicationEnd: "", practiceStart: "", practiceEnd: "" }, ...cohorts]}
+          selectedId={selectedCohortId}
+          onChange={setSelectedCohortId}
+        />
       </div>
 
       <div className="rounded-lg border overflow-x-auto">
@@ -132,16 +108,13 @@ export default function AdminUsersPage() {
             <tr className="border-b bg-muted/50">
               <th className="px-4 py-3 text-left font-medium">ФИО</th>
               <th className="px-4 py-3 text-left font-medium">Email</th>
-              <th className="px-4 py-3 text-left font-medium">Роль</th>
               <th className="px-4 py-3 text-left font-medium">Когорты</th>
-              <th className="px-4 py-3 text-left font-medium">Анкета</th>
-              <th className="px-4 py-3 text-left font-medium">Тест</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
                   Пользователей не найдено
                 </td>
               </tr>
@@ -158,13 +131,6 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
                   <td className="px-4 py-3">
-                    {user.role === "admin" ? (
-                      <Badge variant="destructive">Админ</Badge>
-                    ) : (
-                      <Badge variant="secondary">Студент</Badge>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {user.cohortNames.map((name) => (
                         <Badge key={name} variant="outline" className="text-xs">
@@ -172,34 +138,6 @@ export default function AdminUsersPage() {
                         </Badge>
                       ))}
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.applicationStatus?.toLowerCase() === "approved" && (
-                      <Badge className="bg-green-500 hover:bg-green-600">Одобрена</Badge>
-                    )}
-                    {user.applicationStatus?.toLowerCase() === "rejected" && (
-                      <Badge variant="destructive">Отклонена</Badge>
-                    )}
-                    {(!user.applicationStatus || (user.applicationStatus?.toLowerCase() !== "approved" && user.applicationStatus?.toLowerCase() !== "rejected")) && (
-                      <Badge variant="secondary">Ожидание</Badge>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.testStatus?.toLowerCase() === "approved" && (
-                      <Badge className="bg-green-500 hover:bg-green-600">Одобрен</Badge>
-                    )}
-                    {user.testStatus?.toLowerCase() === "rejected" && (
-                      <Badge variant="destructive">Не прошёл</Badge>
-                    )}
-                    {user.testStatus?.toLowerCase() === "pending" && (
-                      <Badge className="bg-yellow-500 hover:bg-yellow-600">На проверке</Badge>
-                    )}
-                    {(!user.testStatus || user.testStatus?.toLowerCase() === "not_submitted") && user.testAnswer && (
-                      <Badge className="bg-yellow-500 hover:bg-yellow-600">Ожидает проверки</Badge>
-                    )}
-                    {!user.testStatus && !user.testAnswer && (
-                      <span className="text-muted-foreground">—</span>
-                    )}
                   </td>
                 </tr>
               ))

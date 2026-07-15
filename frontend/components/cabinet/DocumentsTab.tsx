@@ -20,7 +20,33 @@ import {
 } from "lucide-react";
 import { api } from "@/shared/api/client";
 import { useAuth } from "@/shared/hooks/use-auth";
-import { DocumentTemplateAvailability, Application } from "@/shared/api/types";
+import { DocumentTemplateAvailability, Application, UserProfile } from "@/shared/api/types";
+
+// Поля профиля, обязательные для ИЗ
+const PROFILE_FIELDS: Array<keyof UserProfile> = [
+  "student_fio", "group", "direction_code", "direction_name",
+  "program_name", "specialty", "practice_topic", "main_stage_tasks",
+];
+
+function isProfileComplete(profile?: UserProfile): boolean {
+  if (!profile) return false;
+  return PROFILE_FIELDS.every((f) => profile[f]?.trim());
+}
+
+// Поля отзыва, заполняемые администратором (7 полей)
+const REVIEW_FIELDS = [
+  "review_activities", "review_characteristic", "review_suggestions", "review_grade",
+  "review_employed", "review_next_practice", "review_employment_offer",
+];
+
+function isReviewFilled(data?: Record<string, unknown> | null): boolean {
+  if (!data) return false;
+  return REVIEW_FIELDS.every((f) => {
+    const val = data[f];
+    // Текстовые поля — не пустые строки; булевы — строки "да"/"нет"
+    return val !== undefined && val !== null && val !== "";
+  });
+}
 
 export function DocumentsTab() {
   const { user } = useAuth();
@@ -34,6 +60,8 @@ export function DocumentsTab() {
   const [reportFileName, setReportFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  // Данные отзыва (заполняет админ)
+  const [reviewData, setReviewData] = useState<Record<string, unknown> | null>(null);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -76,11 +104,14 @@ export function DocumentsTab() {
         const [docs, appDetails] = results;
         if (docs) setTemplates(docs);
         if (appDetails) {
-          const report = appDetails.files?.find((f) => f.type === "REPORT");
+          const report = (appDetails as any).files?.find((f: any) => f.type === "REPORT");
           if (report) {
             setReportStatus(report.status as "PENDING" | "APPROVED" | "REJECTED");
             setReportFileName(report.storageUri?.split("/").pop() || "report");
           }
+          // Отзыв из docData.data полного ответа заявки
+          const dd = (appDetails as any)?.docData?.data;
+          if (dd) setReviewData(dd);
         }
       })
       .catch(() => setTemplates([]))
@@ -229,16 +260,18 @@ export function DocumentsTab() {
               <p className="text-xs text-muted-foreground">
                 {!docsBySlug.iz
                   ? "Шаблон не загружен администратором"
-                  : docsBySlug.iz.available
+                  : docsBySlug.iz.available && isProfileComplete(user?.profile)
                     ? "Документ сгенерирован и доступен для скачивания"
-                    : "Заполните данные для генерации документа"}
+                    : !isProfileComplete(user?.profile)
+                      ? "Заполните все поля профиля для генерации документа"
+                      : "Заполните данные для генерации документа"}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {!docsBySlug.iz ? (
               <Badge variant="secondary">Нет шаблона</Badge>
-            ) : docsBySlug.iz.available ? (
+            ) : docsBySlug.iz.available && isProfileComplete(user?.profile) ? (
               <>
                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Готово</Badge>
                 <Button size="sm" variant="ghost" onClick={() => docsBySlug.iz && handleDownload(docsBySlug.iz.id, "iz")}>
@@ -266,7 +299,7 @@ export function DocumentsTab() {
               <p className="text-xs text-muted-foreground">
                 {!docsBySlug.review
                   ? "Шаблон не загружен администратором"
-                  : docsBySlug.review.available
+                  : docsBySlug.review.available && isReviewFilled(reviewData)
                     ? "Отзыв заполнен и доступен для скачивания"
                     : "Заполняется администратором"}
               </p>
@@ -275,7 +308,7 @@ export function DocumentsTab() {
           <div className="flex items-center gap-2">
             {!docsBySlug.review ? (
               <Badge variant="secondary">Нет шаблона</Badge>
-            ) : docsBySlug.review.available ? (
+            ) : docsBySlug.review.available && isReviewFilled(reviewData) ? (
               <>
                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Готово</Badge>
                 <Button size="sm" variant="ghost" onClick={() => docsBySlug.review && handleDownload(docsBySlug.review.id, "review")}>
@@ -314,7 +347,7 @@ export function DocumentsTab() {
           <div className="flex items-center gap-2">
             {!docsBySlug.title ? (
               <Badge variant="secondary">Нет шаблона</Badge>
-            ) : docsBySlug.title.available ? (
+            ) : docsBySlug.title.available && reportStatus === "APPROVED" ? (
               <>
                 <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Готово</Badge>
                 <Button size="sm" variant="ghost" onClick={() => docsBySlug.title && handleDownload(docsBySlug.title.id, "title")}>
@@ -375,8 +408,8 @@ export function DocumentsTab() {
             </div>
           )}
 
-          {/* Файл + скачивание */}
-          {reportStatus !== "NONE" && reportStatus !== "REJECTED" && (
+          {/* Файл + скачивание (только после одобрения) */}
+          {reportStatus === "APPROVED" && (
             <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
               <div className="flex items-center gap-2">
                 <File className="h-5 w-5 text-primary" />

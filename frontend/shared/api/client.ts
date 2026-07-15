@@ -260,10 +260,6 @@ export const api = {
 	},
 
 	studentDocument: {
-		get: (applicationId: string) =>
-			apiClient.request<StudentDocumentData>(
-				`/applications/${applicationId}/doc-data`,
-			),
 		save: (applicationId: string, data: UpdateStudentDocumentDto) =>
 			apiClient.request<StudentDocumentData>(
 				`/applications/${applicationId}/doc-data`,

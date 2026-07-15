@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { CohortFilter } from "@/components/admin/CohortFilter";
 import { ApplicationsTable } from "@/components/admin/ApplicationsTable";
 import { api } from "@/shared/api/client";
-import { Cohort, AdminApplication, CohortRole } from "@/shared/api/types";
+import { Cohort, AdminApplication, CohortRole, TestTask } from "@/shared/api/types";
 
 export default function AdminApplicationsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [cohortRoles, setCohortRoles] = useState<Record<string, CohortRole[]>>({});
+  const [cohortTests, setCohortTests] = useState<Record<string, TestTask[]>>({});
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
@@ -32,8 +33,9 @@ export default function AdminApplicationsPage() {
       });
       setCohorts(cohortsData);
 
-      // Загружаем роли для каждой когорты
+      // Загружаем роли и тесты для каждой когорты
       const rolesMap: Record<string, CohortRole[]> = {};
+      const testsMap: Record<string, TestTask[]> = {};
       for (const cohort of cohortsData) {
         try {
           const roles = await api.admin.getRoles(cohort.id);
@@ -41,8 +43,15 @@ export default function AdminApplicationsPage() {
         } catch {
           rolesMap[cohort.id] = [];
         }
+        try {
+          const tests = await api.testTask.get(cohort.id);
+          testsMap[cohort.id] = tests;
+        } catch {
+          testsMap[cohort.id] = [];
+        }
       }
       setCohortRoles(rolesMap);
+      setCohortTests(testsMap);
     } catch {}
   };
 
@@ -125,6 +134,7 @@ export default function AdminApplicationsPage() {
           applications={applications}
           cohorts={cohorts}
           cohortRoles={cohortRoles}
+          cohortTests={cohortTests}
           onApprove={handleApprove}
           onReject={handleReject}
           onRoleChange={handleRoleChange}
