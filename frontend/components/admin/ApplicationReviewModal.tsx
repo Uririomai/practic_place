@@ -150,17 +150,9 @@ export function ApplicationReviewModal({
             {new Date(application.createdAt).toLocaleDateString("ru-RU")}
           </div>
           <div>
-            <span className="text-muted-foreground">Статус:</span>{" "}
-            {application.status?.toLowerCase() === "approved" && <Badge className="bg-green-500">Одобрена</Badge>}
-            {application.status?.toLowerCase() === "rejected" && <Badge variant="destructive">Отклонена</Badge>}
-            {(!application.status || (application.status?.toLowerCase() !== "approved" && application.status?.toLowerCase() !== "rejected")) && <Badge variant="secondary">Ожидание</Badge>}
+            <span className="text-muted-foreground">Роль:</span>{" "}
+            <Badge variant="secondary">{application.role?.name || "Не назначена"}</Badge>
           </div>
-          {(application.role || application.roleId) && (
-            <div className="col-span-2">
-              <span className="text-muted-foreground">Роль:</span>{" "}
-              <Badge variant="secondary">{application.role?.name || application.roleId}</Badge>
-            </div>
-          )}
         </div>
 
         {/* Комментарий при отклонении */}

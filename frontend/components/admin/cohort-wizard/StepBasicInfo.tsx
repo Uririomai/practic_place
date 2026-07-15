@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -20,7 +19,6 @@ export interface BasicInfoData {
   applicationEnd: string;
   practiceStart: string;
   practiceEnd: string;
-  description?: string;
 }
 
 interface StepBasicInfoProps {
@@ -35,7 +33,6 @@ const schema = z.object({
   applicationEnd: z.string().min(1, "Дата окончания приёма обязательна"),
   practiceStart: z.string().min(1, "Дата начала практики обязательна"),
   practiceEnd: z.string().min(1, "Дата окончания практики обязательна"),
-  description: z.string().optional(),
 }).refine(
   (data) => !data.applicationStart || !data.applicationEnd || data.applicationStart < data.applicationEnd,
   { message: "Начало приёма должно быть раньше окончания", path: ["applicationEnd"] }
@@ -185,15 +182,6 @@ export function StepBasicInfo({ data, onChange, onValidChange }: StepBasicInfoPr
           error={form.formState.errors.practiceEnd?.message}
         />
       </div>
-
-      <FormItem>
-        <FormLabel>Описание практики</FormLabel>
-        <Textarea
-          {...form.register("description")}
-          placeholder="Краткое описание практики (необязательно)"
-          rows={3}
-        />
-      </FormItem>
     </div>
   );
 }

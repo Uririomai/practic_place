@@ -122,8 +122,19 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    // Очищаем всё localStorage
+    localStorage.clear();
+
+    // Очищаем всё sessionStorage
+    sessionStorage.clear();
+
+    // Очищаем все куки
+    document.cookie.split(';').forEach((c) => {
+      const name = c.split('=')[0].trim();
+      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=${window.location.hostname}`;
+    });
+
     apiClient.clearToken();
     setToken(null);
     setUser(null);

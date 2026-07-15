@@ -43,10 +43,55 @@ const PROFILE_FIELDS: Array<{
   { key: "main_stage_tasks", label: "Перечень работ основного этапа", type: "textarea", placeholder: "Список задач" },
 ];
 
-/** Проверка: заполнен ли профиль */
-function isProfileEmpty(profile?: UserProfile): boolean {
-  if (!profile) return true;
-  return PROFILE_FIELDS.every((f) => !profile[f.key]?.trim());
+/** Проверка: все ли поля профиля заполнены */
+function isProfileComplete(profile?: UserProfile): boolean {
+  if (!profile) return false;
+  return PROFILE_FIELDS.every((f) => profile[f.key]?.trim());
+}
+
+/** Процент заполнения профиля */
+function getProfileCompletion(profile?: UserProfile): number {
+  if (!profile) return 0;
+  const filled = PROFILE_FIELDS.filter((f) => profile[f.key]?.trim()).length;
+  return Math.round((filled / PROFILE_FIELDS.length) * 100);
+}
+
+/** Круговой прогресс-бар */
+function CircularProgress({ percent }: { percent: number }) {
+  const radius = 36;
+  const stroke = 5;
+  const normalizedRadius = radius - stroke;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (percent / 100) * circumference;
+
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <svg height={radius * 2} width={radius * 2} className="-rotate-90">
+        <circle
+          stroke="currentColor"
+          className="text-muted/30"
+          fill="transparent"
+          strokeWidth={stroke}
+          r={normalizedRadius}
+          cx={radius}
+          cy={radius}
+        />
+        <circle
+          stroke="currentColor"
+          className="text-yellow-500"
+          fill="transparent"
+          strokeWidth={stroke}
+          strokeDasharray={`${circumference} ${circumference}`}
+          style={{ strokeDashoffset }}
+          strokeLinecap="round"
+          r={normalizedRadius}
+          cx={radius}
+          cy={radius}
+        />
+      </svg>
+      <span className="absolute text-xs font-bold">{percent}%</span>
+    </div>
+  );
 }
 
 export function ProfileTab() {
@@ -57,7 +102,8 @@ export function ProfileTab() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const profile = user?.profile;
-  const profileEmpty = isProfileEmpty(profile);
+  const profileComplete = isProfileComplete(profile);
+  const profilePercent = getProfileCompletion(profile);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -109,16 +155,14 @@ export function ProfileTab() {
         <p className="text-muted-foreground">Информация о вашем аккаунте</p>
       </div>
 
-      {/* Предупреждение: профиль не заполнен */}
-      {profileEmpty && (
-        <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-5 flex items-start gap-4">
-          <div className="shrink-0 mt-0.5">
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
-          </div>
+      {/* Предупреждение: профиль не полностью заполнен */}
+      {!profileComplete && (
+        <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-5 flex items-center gap-4">
+          <CircularProgress percent={profilePercent} />
           <div className="flex-1 min-w-0">
             <p className="font-medium text-yellow-800">Заполните данные профиля</p>
             <p className="mt-1 text-sm text-yellow-700">
-              Чтобы продолжить работу с платформой, заполните основные данные: ФИО, группа, код направления и другие поля.
+              Заполнено {profilePercent}% — чтобы продолжить работу с платформой, заполните все поля: ФИО, группа, код направления и другие.
             </p>
           </div>
           <Button

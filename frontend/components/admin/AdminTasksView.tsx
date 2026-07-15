@@ -283,7 +283,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
                   return (
                     <th
                       key={day.toISOString()}
-                      className={`min-w-[160px] p-3 text-left font-medium text-muted-foreground ${
+                      className={`w-[180px] max-w-[180px] p-3 text-left font-medium text-muted-foreground ${
                         isToday ? "bg-primary/5" : ""
                       }`}
                     >
@@ -354,7 +354,7 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
                         {weekDays.map((day) => {
                           const card = getCardForDay(day, participant.applicationId);
                           return (
-                            <td key={day.toISOString()} className="p-1.5">
+                            <td key={day.toISOString()} className="p-1.5 w-[180px] max-w-[180px]">
                               <button
                                 onClick={() => {
                                   if (card) {
@@ -363,25 +363,25 @@ export function AdminTasksView({ cohort }: AdminTasksViewProps) {
                                   }
                                 }}
                                 disabled={!card}
-                                className={`w-full min-h-[60px] rounded-md p-2 text-left transition-colors ${
+                                className={`w-full min-h-[60px] rounded-md p-2 text-left transition-colors overflow-hidden ${
                                   card
                                     ? "bg-muted/50 border border-muted hover:bg-muted/70 cursor-pointer"
                                     : "border border-transparent cursor-default"
                                 }`}
                               >
                                 {card ? (
-                                  <div className="space-y-1">
-                                    <p className="line-clamp-1 text-xs font-medium">{card.title}</p>
+                                  <div className="space-y-1 overflow-hidden">
+                                    <p className="truncate text-xs font-medium">{card.title}</p>
                                     {card.description && (
-                                      <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                                      <p className="line-clamp-2 text-[11px] text-muted-foreground break-words">
                                         {card.description}
                                       </p>
                                     )}
                                     <div className="flex items-center justify-between">
                                       {card.artifactLink && (
-                                        <ExternalLink className="h-3 w-3 text-primary" />
+                                        <ExternalLink className="h-3 w-3 text-primary shrink-0" />
                                       )}
-                                      <span className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                      <span className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
                                         <Clock className="h-2.5 w-2.5" />
                                         {formatUpdatedAt(card.updatedAt)}
                                       </span>

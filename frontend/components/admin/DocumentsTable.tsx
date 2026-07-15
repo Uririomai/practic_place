@@ -23,6 +23,21 @@ interface DocumentsTableProps {
 
 const ITEMS_PER_PAGE = 25;
 
+/** Проверяет, заполнены ли ВСЕ данные отзыва (7 полей) */
+function isReviewFilled(review?: AdminDocumentData["review"]): boolean {
+  if (!review) return false;
+  return !!(
+    review.review_activities &&
+    review.review_characteristic &&
+    review.review_suggestions &&
+    review.review_grade &&
+    // Булевы поля — строки "да"/"нет", проверяем что не пустые
+    review.review_employed !== "" &&
+    review.review_next_practice !== "" &&
+    review.review_employment_offer !== ""
+  );
+}
+
 export function DocumentsTable({ documents, onRefresh }: DocumentsTableProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -49,10 +64,10 @@ export function DocumentsTable({ documents, onRefresh }: DocumentsTableProps) {
   );
 
   const reportStatusIcon = (status?: string) => {
-    if (!status) return <XCircle className="h-5 w-5 text-red-500" />;
-    if (status === "APPROVED") return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-    if (status === "REJECTED") return <XCircle className="h-5 w-5 text-red-500" />;
-    return <Clock className="h-5 w-5 text-yellow-600" />;
+    if (!status) return <XCircle className="h-5 w-5 text-red-500 mx-auto" />;
+    if (status === "APPROVED") return <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" />;
+    if (status === "REJECTED") return <XCircle className="h-5 w-5 text-red-500 mx-auto" />;
+    return <Clock className="h-5 w-5 text-yellow-600 mx-auto" />;
   };
 
   const handleApprove = async (applicationId: string) => {
@@ -130,13 +145,12 @@ export function DocumentsTable({ documents, onRefresh }: DocumentsTableProps) {
               <th className="px-4 py-3 text-center font-medium">Отзыв</th>
               <th className="px-4 py-3 text-center font-medium">Титул</th>
               <th className="px-4 py-3 text-center font-medium">Отчёт</th>
-              <th className="px-4 py-3 text-center font-medium">Действия</th>
             </tr>
           </thead>
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   Студентов не найдено
                 </td>
               </tr>
@@ -167,46 +181,25 @@ export function DocumentsTable({ documents, onRefresh }: DocumentsTableProps) {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {reviewDoc?.available ? (
+                      {reviewDoc?.available && isReviewFilled(doc.review) ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" />
-                      ) : (
+                      ) : reviewDoc?.available ? (
                         <Clock className="h-5 w-5 text-yellow-500 mx-auto" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-500 mx-auto" />
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {titleDoc?.available ? (
+                      {titleDoc?.available && reportStatus === "APPROVED" ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto" />
+                      ) : titleDoc?.available ? (
+                        <Clock className="h-5 w-5 text-yellow-500 mx-auto" />
                       ) : (
                         <XCircle className="h-5 w-5 text-red-500 mx-auto" />
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {reportStatusIcon(reportStatus)}
-                    </td>
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      {reportStatus === "PENDING" && (
-                        <div className="flex gap-1 justify-center">
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 h-7"
-                            onClick={() => handleApprove(doc.applicationId)}
-                            disabled={actionLoading}
-                          >
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Ок
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="h-7"
-                            onClick={() => { setRejectDialogDoc(doc); setRejectComment(""); }}
-                            disabled={actionLoading}
-                          >
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Нет
-                          </Button>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 );
@@ -310,6 +303,12 @@ function DocumentModal({
   const titleDoc = doc.documents?.find((d) => d.slug === "title");
   const additionalDocs = doc.documents?.filter((d) => !["iz", "review", "title"].includes(d.slug)) || [];
 
+  // Статусы для вкладок (совпадают с таблицей)
+  const izReady = izDoc?.available;
+  const reviewReady = reviewDoc?.available && isReviewFilled(doc.review);
+  const reportReady = doc.report?.status === "APPROVED";
+  const titleReady = titleDoc?.available && reportReady;
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
@@ -321,19 +320,50 @@ function DocumentModal({
           <TabsList className="w-full justify-start h-auto p-0 bg-transparent border-b shrink-0">
             <TabsTrigger value="iz" className="flex items-center gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               <FileText className="h-4 w-4" /> ИЗ
+              {izReady ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-500" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="review" className="flex items-center gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               <BookOpen className="h-4 w-4" /> Отзыв
+              {reviewReady ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : reviewDoc?.available ? (
+                <Clock className="h-3.5 w-3.5 text-yellow-500" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-500" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="report" className="flex items-center gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               <ClipboardList className="h-4 w-4" /> Отчёт
+              {reportReady ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : doc.report?.status === "REJECTED" ? (
+                <XCircle className="h-3.5 w-3.5 text-red-500" />
+              ) : doc.report ? (
+                <Clock className="h-3.5 w-3.5 text-yellow-500" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-500" />
+              )}
             </TabsTrigger>
             <TabsTrigger value="title" className="flex items-center gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               <FileCheck className="h-4 w-4" /> Титул
+              {titleReady ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-500" />
+              )}
             </TabsTrigger>
             {additionalDocs.length > 0 && (
               <TabsTrigger value="additional" className="flex items-center gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
                 <FileText className="h-4 w-4" /> Доп.
+                {additionalDocs.some((d) => d.available) ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5 text-red-500" />
+                )}
               </TabsTrigger>
             )}
           </TabsList>
@@ -363,7 +393,7 @@ function DocumentModal({
 
             {/* Титул */}
             <TabsContent value="title">
-              <TitleTab doc={doc} titleDoc={titleDoc} onDownloadDoc={onDownloadDoc} />
+              <TitleTab doc={doc} titleDoc={titleDoc} reportReady={reportReady} onDownloadDoc={onDownloadDoc} />
             </TabsContent>
 
             {/* Доп. документы */}
@@ -382,27 +412,37 @@ function DocumentModal({
 // === Вкладка: ИЗ ===
 
 function IZTab({ doc }: { doc: AdminDocumentData }) {
+  const izDoc = doc.documents?.find((d) => d.slug === "iz");
   const iz = doc.iz;
-  if (!iz?.student_fio) {
+
+  if (!izDoc?.available) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <XCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        ИЗ не заполнено
+        Шаблон Индивидуального задания не добавлен
       </div>
     );
   }
 
   return (
     <div className="space-y-3 text-sm">
-      <h4 className="font-medium">Индивидуальное задание</h4>
-      <InfoRow label="Студент" value={iz.student_fio} />
-      <InfoRow label="Группа" value={iz.group} />
-      <InfoRow label="Код направления" value={iz.direction_code} />
-      <InfoRow label="Направление" value={iz.direction_name} />
-      <InfoRow label="Программа" value={iz.program_name} />
-      <InfoRow label="Специальность" value={iz.specialty} />
-      <InfoRow label="Тема практики" value={iz.practice_topic} />
-      <InfoRow label="Задачи этапа" value={iz.main_stage_tasks} />
+      <div className="flex items-center gap-2 text-green-600 mb-4">
+        <CheckCircle2 className="h-4 w-4" />
+        <span className="font-medium">Шаблон добавлен, доступен к скачиванию</span>
+      </div>
+      {iz?.student_fio && (
+        <>
+          <h4 className="font-medium">Данные ИЗ</h4>
+          <InfoRow label="Студент" value={iz.student_fio} />
+          <InfoRow label="Группа" value={iz.group} />
+          <InfoRow label="Код направления" value={iz.direction_code} />
+          <InfoRow label="Направление" value={iz.direction_name} />
+          <InfoRow label="Программа" value={iz.program_name} />
+          <InfoRow label="Специальность" value={iz.specialty} />
+          <InfoRow label="Тема практики" value={iz.practice_topic} />
+          <InfoRow label="Задачи этапа" value={iz.main_stage_tasks} />
+        </>
+      )}
     </div>
   );
 }
@@ -410,17 +450,27 @@ function IZTab({ doc }: { doc: AdminDocumentData }) {
 // === Вкладка: Отзыв ===
 
 function ReviewTab({ doc, onRefresh, onClose }: { doc: AdminDocumentData; onRefresh: () => void; onClose: () => void }) {
+  const reviewDoc = doc.documents?.find((d) => d.slug === "review");
   const [form, setForm] = useState({
     review_activities: doc.review?.review_activities || "",
     review_characteristic: doc.review?.review_characteristic || "",
-    review_employed: doc.review?.review_employed || false,
-    review_next_practice: doc.review?.review_next_practice || false,
-    review_employment_offer: doc.review?.review_employment_offer || false,
+    review_employed: doc.review?.review_employed === "да",
+    review_next_practice: doc.review?.review_next_practice === "да",
+    review_employment_offer: doc.review?.review_employment_offer === "да",
     review_suggestions: doc.review?.review_suggestions || "",
     review_grade: doc.review?.review_grade || "",
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  if (!reviewDoc?.available) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <XCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        Шаблон отзыва не добавлен
+      </div>
+    );
+  }
 
   const handleSave = async () => {
     setSaving(true);
@@ -662,10 +712,11 @@ function ReportTab({
 // === Вкладка: Титул ===
 
 function TitleTab({
-  doc, titleDoc, onDownloadDoc,
+  doc, titleDoc, reportReady, onDownloadDoc,
 }: {
   doc: AdminDocumentData;
   titleDoc?: { id: string; available: boolean; reason?: string };
+  reportReady: boolean;
   onDownloadDoc: (appId: string, templateId: string, name: string) => void;
 }) {
   if (!titleDoc) {
@@ -677,12 +728,16 @@ function TitleTab({
     );
   }
 
-  if (!titleDoc.available) {
+  if (!titleDoc.available || !reportReady) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <FileCheck className="h-8 w-8 mx-auto mb-2 opacity-50" />
         <p>Титульный лист ещё не доступен</p>
-        <p className="text-xs mt-1">{titleDoc.reason || "Отчёт должен быть одобрен"}</p>
+        <p className="text-xs mt-1">
+          {!titleDoc.available
+            ? "Шаблон титульного листа не добавлен"
+            : "Отчёт должен быть одобрен"}
+        </p>
       </div>
     );
   }

@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InlineRoleSelect } from "./InlineRoleSelect";
 import { ApplicationReviewModal } from "./ApplicationReviewModal";
-import { AdminApplication, Cohort, CohortRole } from "@/shared/api/types";
+import { AdminApplication, Cohort, CohortRole, TestTask } from "@/shared/api/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface ApplicationsTableProps {
   applications: AdminApplication[];
   cohorts: Cohort[];
   cohortRoles: Record<string, CohortRole[]>;
+  cohortTests: Record<string, TestTask[]>;
   onApprove: (id: string, roleId: string) => Promise<void>;
   onReject: (id: string, comment: string) => Promise<void>;
   onRoleChange: (id: string, roleId: string) => Promise<void>;
@@ -24,6 +25,7 @@ export function ApplicationsTable({
   applications,
   cohorts,
   cohortRoles,
+  cohortTests,
   onApprove,
   onReject,
   onRoleChange,
@@ -70,6 +72,11 @@ export function ApplicationsTable({
       return <Badge variant="destructive">Не прошёл</Badge>;
     if (app.testAnswer)
       return <Badge className="bg-yellow-500 hover:bg-yellow-600">Ожидает проверки</Badge>;
+    // Проверяем, есть ли тестовое задание на эту роль в когорте
+    const tests = cohortTests[app.cohortId] || [];
+    const hasTest = tests.some((t) => t.roleId === app.roleId);
+    if (!hasTest)
+      return <Badge variant="destructive">Необходимо добавить тест</Badge>;
     return <Badge variant="outline">Ожидает прохождения</Badge>;
   };
 
@@ -105,7 +112,6 @@ export function ApplicationsTable({
           <thead>
             <tr className="border-b bg-muted/50">
               <th className="px-4 py-3 text-left font-medium">Когорта</th>
-              <th className="px-4 py-3 text-left font-medium">ФИО</th>
               <th className="px-4 py-3 text-left font-medium">Email</th>
               <th className="px-4 py-3 text-left font-medium">Дата</th>
               <th className="px-4 py-3 text-left font-medium">Анкета</th>
@@ -116,7 +122,7 @@ export function ApplicationsTable({
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   Заявок не найдено
                 </td>
               </tr>
@@ -128,7 +134,6 @@ export function ApplicationsTable({
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                 >
                   <td className="px-4 py-3">{app.cohort?.name || "—"}</td>
-                  <td className="px-4 py-3 font-medium">{app.user.fio || app.user.email}</td>
                   <td className="px-4 py-3 text-muted-foreground">{app.user.email}</td>
                   <td className="px-4 py-3">
                     {new Date(app.createdAt).toLocaleDateString("ru-RU")}
