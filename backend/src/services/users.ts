@@ -39,8 +39,12 @@ export async function createInitialAdmin() {
 export async function createUser(email: string, password: string, role: $Enums.UserRole = $Enums.UserRole.STUDENT) {
   const exists = await prisma.user.findUnique({ where: { email } });
 
-  if (password.length < 8)
-    throw new AppError("PASSWORD_TOO_SHORT", 409, "Password must contain at least 8 characters")
+  if (password.length < 6)
+    throw new AppError("PASSWORD_TOO_SHORT", 409, "Password must contain at least 6 characters and one uppercase letter")
+
+  // ponytail: single-pass check, uppercase only
+  if (!/[A-Z]/.test(password))
+    throw new AppError("PASSWORD_NO_UPPERCASE", 409, "Password must contain at least one uppercase letter")
   if (exists)
     throw new AppError("USER_EXISTS", 409, "user exists")
 
