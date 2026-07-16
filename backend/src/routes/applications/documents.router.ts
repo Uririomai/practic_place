@@ -202,7 +202,7 @@ router.get(
           include: {
             files: true,
             user: {
-              select: { profile: true },
+              select: { profile: true, email: true },
             },
           },
         });
@@ -280,16 +280,37 @@ router.get(
       // ponytail: merge user.profile as base, docData overrides
       const userData = (application.user.profile ?? {}) as Record<string, unknown>;
       const docDataObj = (docData?.data ?? {}) as Record<string, unknown>;
-      // ponytail: resolved cohort fields, add more here when needed
       const cohort_ = await prisma.cohort.findUnique({
         where: { id: application.cohortId },
-        select: { practiceStart: true, practiceEnd: true },
+        select: { name: true, practiceStart: true, practiceEnd: true },
       });
+
+      const role = application.roleId
+        ? await prisma.cohortRole.findUnique({ where: { id: application.roleId } })
+        : null;
+
+      const userEmail = application.user.email;
+
+      // ponytail: cohort_name, role_name, user_email added
       const cohortFields: Record<string, string> = {
         practice_start: cohort_!.practiceStart.toISOString().split("T")[0] ?? "",
         practice_end: cohort_!.practiceEnd.toISOString().split("T")[0] ?? "",
+        cohort_name: cohort_!.name ?? "",
+        role_name: role?.name ?? "",
+        user_email: userEmail ?? "",
       };
-      const mergedData = { ...userData, ...docDataObj, ...cohortFields };
+
+      const rawData = { ...userData, ...docDataObj, ...cohortFields };
+
+      // ponytail: replace undefined/null with "поле_не_заполнено"
+      const mergedData: Record<string, string> = {};
+      for (const [key, value] of Object.entries(rawData)) {
+        if (value === undefined || value === null) {
+          mergedData[key] = `${key}_не_заполнено`;
+        } else {
+          mergedData[key] = String(value);
+        }
+      }
 
       const file = await generateDocument(
         template.uri,
