@@ -152,12 +152,18 @@ export function DocumentsTab() {
   };
 
   // Скачивание документа из шаблона
-  const handleDownload = async (templateId: string, name: string) => {
+  const handleDownload = async (templateId: string, slug: string) => {
     if (!application) return;
     try {
       const blob = await api.documents.download(application.id, templateId);
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug}_${application.id.slice(0, 8)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch {
       showToast("error", "Ошибка скачивания документа");
     }
@@ -169,7 +175,13 @@ export function DocumentsTab() {
     try {
       const blob = await api.documents.downloadReport(application.id);
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `report_${application.id.slice(0, 8)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch {
       showToast("error", "Ошибка скачивания отчёта");
     }

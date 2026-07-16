@@ -100,17 +100,29 @@ export function DocumentsTable({ documents, onRefresh }: DocumentsTableProps) {
     try {
       const blob = await api.documents.downloadReport(applicationId);
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `report_${applicationId.slice(0, 8)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Ошибка скачивания:", err);
     }
   };
 
-  const handleDownloadDoc = async (applicationId: string, templateId: string, name: string) => {
+  const handleDownloadDoc = async (applicationId: string, templateId: string, slug: string) => {
     try {
       const blob = await api.documents.download(applicationId, templateId);
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug}_${applicationId.slice(0, 8)}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Ошибка скачивания:", err);
     }

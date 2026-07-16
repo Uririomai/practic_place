@@ -117,7 +117,13 @@ function ReportContent({ doc }: { doc: AdminDocumentData }) {
           try {
             const blob = await api.documents.downloadReport(doc.applicationId);
             const url = URL.createObjectURL(blob);
-            window.open(url, "_blank");
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `report_${doc.applicationId.slice(0, 8)}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
           } catch (err) {
             console.error("Ошибка скачивания:", err);
           }
