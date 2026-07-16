@@ -5,8 +5,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 12345678
       POSTGRES_DB: app
-    ports:
-      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
@@ -16,20 +14,28 @@ services:
       retries: 10
       start_period: 10s
 
+  migrate:
+    build: ./backend
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://postgres:12345678@db:5432/app
+    depends_on:
+      db:
+        condition: service_healthy
+
   app:
-    build:
-      context: ./backend/
-    ports:
-      - "3001:3000"
+    build: ./backend
     environment:
       DATABASE_URL: postgresql://postgres:12345678@db:5432/app
       JWT_SECRET: blah-blah
       PORT: "3000"
       ADMIN_EMAIL: admin123@example.com
-      ADMIN_PASSWORD: Admin12345678
+      ADMIN_PASSWORD: 12345678
     depends_on:
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - app-storage:/app/storage
     healthcheck:
       test:
         [
@@ -43,27 +49,30 @@ services:
       retries: 10
       start_period: 10s
 
-  migrate:
-    build:
-      context: ./backend/
-    command: npx prisma migrate deploy
-    environment:
-      DATABASE_URL: postgresql://postgres:12345678@db:5432/app
-    depends_on:
-      db:
-        condition: service_healthy
-
   frontend:
     build:
       context: ./frontend
       args:
         BACKEND_URL: "http://app:3000"
         NEXT_PUBLIC_API_URL: /api
-    ports:
-      - "3000:3000"
+    environment:
+      BACKEND_URL: "http://app:3000"
+      NEXT_PUBLIC_API_URL: /api
     depends_on:
       app:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.practice.rule=Host(`praktika67.duckdns.org`)"
+      - "traefik.http.routers.practice.entrypoints=websecure"
+      - "traefik.http.routers.practice.tls.certresolver=letsencrypt"
+      - "traefik.http.services.practice.loadbalancer.server.port=3000"
 
 volumes:
   pgdata:
+  app-storage:
+
+networks:
+  default:
+    name: monitoring_default
+    external: true
