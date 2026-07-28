@@ -8,9 +8,17 @@ import { Cohort } from "@/shared/api/types";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
+const COHORT_STORAGE_KEY = "admin_selected_cohort";
+
 export default function AdminTasksPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
-  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(COHORT_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,7 +27,10 @@ export default function AdminTasksPage() {
         const data = await api.cohorts.list();
         setCohorts(data);
         if (data.length > 0) {
-          handleCohortChange(data[0].id);
+          const targetId = selectedCohortId || data[0].id;
+          if (!selectedCohortId) {
+            handleCohortChange(targetId);
+          }
         }
       } finally {
         setLoading(false);
@@ -30,6 +41,9 @@ export default function AdminTasksPage() {
 
   const handleCohortChange = useCallback(async (cohortId: string) => {
     setSelectedCohortId(cohortId);
+    try {
+      localStorage.setItem(COHORT_STORAGE_KEY, cohortId);
+    } catch {}
     try {
       await api.auth.updateActiveCohort(cohortId);
     } catch (e) {

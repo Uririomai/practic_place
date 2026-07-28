@@ -6,6 +6,7 @@ import { CheckCircle2, Copy } from "lucide-react";
 // Все переменные для шаблонов документов
 const VARIABLES = [
   { key: "student_fio", label: "ФИО студента" },
+  { key: "student_fio_title", label: "ФИО в формате Фамилия И.О." },
   { key: "group", label: "Группа" },
   { key: "direction_code", label: "Код направления" },
   { key: "direction_name", label: "Название направления" },
