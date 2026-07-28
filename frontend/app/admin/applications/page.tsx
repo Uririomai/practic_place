@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CohortFilter } from "@/components/admin/CohortFilter";
 import { ApplicationsTable } from "@/components/admin/ApplicationsTable";
 import { api } from "@/shared/api/client";
-import { Cohort, AdminApplication, CohortRole, TestTask } from "@/shared/api/types";
+import { Cohort, AdminApplication, CohortRole, CohortStudent, TestTask } from "@/shared/api/types";
 
 const COHORT_STORAGE_KEY = "admin_selected_cohort";
 
@@ -42,9 +42,10 @@ export default function AdminApplicationsPage() {
       });
       setCohorts(cohortsData);
 
-      // Загружаем роли и тесты для каждой когорты
+      // Загружаем роли, тесты и студентов для каждой когорты
       const rolesMap: Record<string, CohortRole[]> = {};
       const testsMap: Record<string, TestTask[]> = {};
+      const fioMap: Record<string, string> = {};
       for (const cohort of cohortsData) {
         try {
           const roles = await api.admin.getRoles(cohort.id);
@@ -58,9 +59,16 @@ export default function AdminApplicationsPage() {
         } catch {
           testsMap[cohort.id] = [];
         }
+        try {
+          const students = await api.cohorts.getStudents(cohort.id);
+          for (const s of students) {
+            fioMap[s.user.id] = s.user.profile?.student_fio || s.user.email;
+          }
+        } catch {}
       }
       setCohortRoles(rolesMap);
       setCohortTests(testsMap);
+      setStudentsFioMap(fioMap);
     } catch {}
   };
 
@@ -147,6 +155,7 @@ export default function AdminApplicationsPage() {
           cohorts={cohorts}
           cohortRoles={cohortRoles}
           cohortTests={cohortTests}
+          studentsFioMap={studentsFioMap}
           onApprove={handleApprove}
           onReject={handleReject}
           onRoleChange={handleRoleChange}
