@@ -5,6 +5,9 @@ import { MswProvider } from "@/components/MswProvider";
 export const metadata: Metadata = {
   title: "Практика",
   description: "Система организации студенческой практики",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

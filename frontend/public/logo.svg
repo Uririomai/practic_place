@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Контрастный темно-синий фон, чтобы иконка выделялась и на темной, и на светлой вкладке -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+    
+    <!-- Яркий, светящийся градиент для самого логотипа -->
+    <linearGradient id="logoGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+  </defs>
+
+  <!-- Скругленный фон (squircle) -->
+  <rect width="512" height="512" rx="128" fill="url(#bg)" />
+
+  <!-- Массивная геометрия: Буква "П" + стрелка развития -->
+  <!-- Толщина линий огромная, чтобы форма читалась в микро-масштабе -->
+  <path d="M 120,400 
+           V 160 
+           H 300 
+           L 400,60 
+           V 220 
+           H 300 
+           L 340,180 
+           H 200 
+           V 400 
+           Z" 
+        fill="url(#logoGrad)" />
+        
+  <!-- Правая «ножка» П, отделенная от основной фигуры для динамики -->
+  <rect x="340" y="240" width="80" height="160" rx="16" fill="url(#logoGrad)" />
+</svg>
