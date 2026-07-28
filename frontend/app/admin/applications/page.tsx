@@ -62,7 +62,9 @@ export default function AdminApplicationsPage() {
         try {
           const students = await api.cohorts.getStudents(cohort.id);
           for (const s of students) {
-            fioMap[s.user.id] = s.user.profile?.student_fio || s.user.email;
+            if (s.user.profile?.student_fio) {
+              fioMap[s.user.id] = s.user.profile.student_fio;
+            }
           }
         } catch {}
       }

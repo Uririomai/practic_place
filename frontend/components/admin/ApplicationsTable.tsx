@@ -136,11 +136,12 @@ export function ApplicationsTable({
                 >
                   <td className="px-4 py-3">
                     {(() => {
-                      const fio = app.user.fio || studentsFioMap?.[app.user.id]
+                      const rawFio = app.user.fio || studentsFioMap?.[app.user.id]
+                      const isRealFio = rawFio && !rawFio.includes("@")
                       return (
                         <div>
-                          <p className="font-medium">{fio || app.user.email}</p>
-                          {fio && (
+                          <p className="font-medium">{isRealFio ? rawFio : app.user.email}</p>
+                          {isRealFio && (
                             <p className="text-xs text-muted-foreground">{app.user.email}</p>
                           )}
                         </div>
