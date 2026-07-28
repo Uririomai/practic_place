@@ -312,6 +312,21 @@ router.get(
         }
       }
 
+      // ponytail: student_fio_title — Фамилия И.О. из student_fio
+      const studentFio = mergedData["student_fio"];
+      if (studentFio && !studentFio.endsWith("_не_заполнено")) {
+        const parts = studentFio.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          const surname = parts[0];
+          const initials = parts.slice(1).map((p) => p[0].toUpperCase() + ".").join("");
+          mergedData["student_fio_title"] = `${surname} ${initials}`;
+        } else {
+          mergedData["student_fio_title"] = studentFio;
+        }
+      } else {
+        mergedData["student_fio_title"] = "student_fio_title_не_заполнено";
+      }
+
       const file = await generateDocument(
         template.uri,
         mergedData,
