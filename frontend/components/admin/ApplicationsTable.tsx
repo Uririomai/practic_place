@@ -13,6 +13,7 @@ interface ApplicationsTableProps {
   cohorts: Cohort[];
   cohortRoles: Record<string, CohortRole[]>;
   cohortTests: Record<string, TestTask[]>;
+  studentsFioMap?: Record<string, string>;
   onApprove: (id: string, roleId: string) => Promise<void>;
   onReject: (id: string, comment: string) => Promise<void>;
   onRoleChange: (id: string, roleId: string) => Promise<void>;
@@ -26,6 +27,7 @@ export function ApplicationsTable({
   cohorts,
   cohortRoles,
   cohortTests,
+  studentsFioMap,
   onApprove,
   onReject,
   onRoleChange,
@@ -133,10 +135,17 @@ export function ApplicationsTable({
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                 >
                   <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium">{app.user.fio || app.user.email}</p>
-                      <p className="text-xs text-muted-foreground">{app.user.email}</p>
-                    </div>
+                    {(() => {
+                      const fio = app.user.fio || studentsFioMap?.[app.user.id]
+                      return (
+                        <div>
+                          <p className="font-medium">{fio || app.user.email}</p>
+                          {fio && (
+                            <p className="text-xs text-muted-foreground">{app.user.email}</p>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     {new Date(app.createdAt).toLocaleDateString("ru-RU")}
