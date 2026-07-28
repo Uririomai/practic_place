@@ -13,6 +13,7 @@ export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [cohortRoles, setCohortRoles] = useState<Record<string, CohortRole[]>>({});
   const [cohortTests, setCohortTests] = useState<Record<string, TestTask[]>>({});
+  const [studentsFioMap, setStudentsFioMap] = useState<Record<string, string>>({});
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(() => {
     try {
       return localStorage.getItem(COHORT_STORAGE_KEY);
