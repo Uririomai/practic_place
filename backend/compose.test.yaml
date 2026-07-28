@@ -5,7 +5,7 @@ services:
     image: postgres:18.4-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: app_test
     tmpfs:
       - /var/lib/postgresql
@@ -20,11 +20,11 @@ services:
       context: .
       dockerfile: ./Dockerfile.test
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_test
-      JWT_SECRET: test-secret
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/app_test
+      JWT_SECRET: ${JWT_SECRET}
       PORT: 3000
-      ADMIN_EMAIL: admin123@example.com
-      ADMIN_PASSWORD: 12345678
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
