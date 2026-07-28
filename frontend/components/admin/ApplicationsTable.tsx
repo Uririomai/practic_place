@@ -111,8 +111,7 @@ export function ApplicationsTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">Когорта</th>
-              <th className="px-4 py-3 text-left font-medium">Email</th>
+              <th className="px-4 py-3 text-left font-medium">Студент</th>
               <th className="px-4 py-3 text-left font-medium">Дата</th>
               <th className="px-4 py-3 text-left font-medium">Анкета</th>
               <th className="px-4 py-3 text-left font-medium">Тест</th>
@@ -122,7 +121,7 @@ export function ApplicationsTable({
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                   Заявок не найдено
                 </td>
               </tr>
@@ -133,8 +132,12 @@ export function ApplicationsTable({
                   onClick={() => setReviewApp(app)}
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                 >
-                  <td className="px-4 py-3">{app.cohort?.name || "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{app.user.email}</td>
+                  <td className="px-4 py-3">
+                    <div>
+                      <p className="font-medium">{app.user.fio || app.user.email}</p>
+                      <p className="text-xs text-muted-foreground">{app.user.email}</p>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     {new Date(app.createdAt).toLocaleDateString("ru-RU")}
                   </td>

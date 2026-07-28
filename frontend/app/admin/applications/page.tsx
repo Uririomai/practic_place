@@ -6,12 +6,20 @@ import { ApplicationsTable } from "@/components/admin/ApplicationsTable";
 import { api } from "@/shared/api/client";
 import { Cohort, AdminApplication, CohortRole, TestTask } from "@/shared/api/types";
 
+const COHORT_STORAGE_KEY = "admin_selected_cohort";
+
 export default function AdminApplicationsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [applications, setApplications] = useState<AdminApplication[]>([]);
   const [cohortRoles, setCohortRoles] = useState<Record<string, CohortRole[]>>({});
   const [cohortTests, setCohortTests] = useState<Record<string, TestTask[]>>({});
-  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(COHORT_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
 
@@ -73,6 +81,9 @@ export default function AdminApplicationsPage() {
 
   const handleCohortChange = useCallback(async (cohortId: string) => {
     setSelectedCohortId(cohortId);
+    try {
+      localStorage.setItem(COHORT_STORAGE_KEY, cohortId);
+    } catch {}
     setSwitching(true);
     try {
       // Меняем активную когорту на бэке

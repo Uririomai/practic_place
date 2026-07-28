@@ -6,10 +6,18 @@ import { DocumentsTable } from "@/components/admin/DocumentsTable";
 import { api } from "@/shared/api/client";
 import { Cohort, AdminDocumentData, CohortStudent } from "@/shared/api/types";
 
+const COHORT_STORAGE_KEY = "admin_selected_cohort";
+
 export default function AdminDocumentsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [documents, setDocuments] = useState<AdminDocumentData[]>([]);
-  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(COHORT_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
 
@@ -87,17 +95,24 @@ export default function AdminDocumentsPage() {
       .then((data) => {
         setCohorts(data);
         if (data.length > 0) {
-          setSelectedCohortId(data[0].id);
-          loadDocuments(data[0].id);
+          const targetId = selectedCohortId || data[0].id;
+          if (!selectedCohortId) {
+            setSelectedCohortId(targetId);
+          }
+          loadDocuments(targetId);
         }
       })
       .catch(() => setCohorts([]))
       .finally(() => setLoading(false));
   }, [loadDocuments]);
 
+
   const handleCohortChange = useCallback(
     (cohortId: string) => {
       setSelectedCohortId(cohortId);
+      try {
+        localStorage.setItem(COHORT_STORAGE_KEY, cohortId);
+      } catch {}
       loadDocuments(cohortId);
     },
     [loadDocuments]
