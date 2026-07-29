@@ -33,6 +33,14 @@ function generateDocx(templateBuffer: Buffer, data: Record<string, unknown>): Bu
     paragraphLoop: true,
     linebreaks: true,
     delimiters: { start: "{{", end: "}}" },
+    nullGetter: (part) => {
+      // Для простых плейсхолдеров {{key}} без данных — показываем "key_не_заполнено"
+      // Для циклов {#list} / условий — возвращаем пустую строку
+      if (part.type === "placeholder" && !part.module) {
+        return `${part.value}_не_заполнено`;
+      }
+      return "";
+    },
   });
 
   doc.setData(data);
