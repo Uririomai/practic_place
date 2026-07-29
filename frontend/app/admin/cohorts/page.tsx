@@ -165,18 +165,21 @@ export default function AdminCohortsPage() {
         }
       }
 
-      // Синхронизируем поле «Желаемая роль» в опросных полях когорты с актуальными ролями
+      // Обновляем поле «Желаемая роль» через PATCH, без удаления остальных полей
       try {
         const currentFields = await api.survey.getFields(selectedCohort.id);
-        const roleNames = roles
-          .filter(r => r.name.trim())
-          .map(r => r.name.trim());
-        const updatedFields = currentFields.map(f =>
-          f.label === "Желаемая роль"
-            ? { ...f, type: "select" as const, options: roleNames }
-            : f
+        const desiredRoleField = currentFields.find(
+          f => f.label === "Желаемая роль",
         );
-        await api.admin.saveSurveyFields(selectedCohort.id, { fields: updatedFields });
+        if (desiredRoleField) {
+          const roleNames = roles
+            .filter(r => r.name.trim())
+            .map(r => r.name.trim());
+          await api.admin.updateSurveyField(selectedCohort.id, desiredRoleField.id, {
+            type: "select",
+            options: roleNames,
+          });
+        }
       } catch {
         // Не блокируем сохранение ролей, если синхронизация полей не удалась
       }

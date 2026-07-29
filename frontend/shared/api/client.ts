@@ -398,6 +398,13 @@ export const api = {
 			apiClient.request<void>(`/cohorts/${cohortId}/fields`, {
 				method: 'DELETE',
 			}),
+		// Обновить одно поле анкеты (PATCH) — не удаляет ответы студентов
+		updateSurveyField: (cohortId: string, fieldId: string, data: Partial<Pick<SurveyField, 'type' | 'options' | 'label' | 'required' | 'placeholder'>>) =>
+			apiClient.request<SurveyField>(`/cohorts/${cohortId}/fields/${fieldId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data),
+			}),
 		// Бэкенд принимает одно поле за запрос: { label, type, options?, order? }
 		// Prisma enum использует заглавные: TEXT, TEXTAREA, SELECT
 		saveSurveyFields: async (cohortId: string, data: SaveSurveyFieldsDto) => {
