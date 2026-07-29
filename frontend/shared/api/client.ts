@@ -424,7 +424,7 @@ export const api = {
 		// Роли когорты
 		getRoles: (cohortId: string) =>
 			apiClient.request<CohortRole[]>(`/cohorts/${cohortId}/roles`),
-		// Бэкенд принимает одну роль за раз: { name }
+		// Создаёт одну роль
 		saveRoles: async (cohortId: string, data: SaveCohortRolesDto) => {
 			const results: CohortRole[] = []
 			for (const role of data.roles) {
@@ -440,6 +440,13 @@ export const api = {
 			}
 			return results
 		},
+		// Обновляет имя существующей роли
+		updateRole: (cohortId: string, roleId: string, data: { name: string }) =>
+			apiClient.request<CohortRole>(`/cohorts/${cohortId}/roles/${roleId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data),
+			}),
 		deleteRole: (cohortId: string, roleId: string) =>
 			apiClient.request<void>(`/cohorts/${cohortId}/roles/${roleId}`, {
 				method: 'DELETE',

@@ -8,14 +8,15 @@ import { Plus, Trash2 } from "lucide-react";
 
 interface CohortRolesEditorProps {
   initialRoles: CohortRole[];
-  onSave: (roles: { name: string }[]) => Promise<void>;
+  onSave: (roles: { id?: string; name: string }[], deletedIds: string[]) => Promise<void>;
   onCancel: () => void;
 }
 
 export function CohortRolesEditor({ initialRoles, onSave, onCancel }: CohortRolesEditorProps) {
-  const [roles, setRoles] = useState<{ name: string }[]>(
-    initialRoles.map((r) => ({ name: r.name }))
+  const [roles, setRoles] = useState<{ id?: string; name: string }[]>(
+    initialRoles.map((r) => ({ id: r.id, name: r.name }))
   );
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState("");
@@ -26,11 +27,15 @@ export function CohortRolesEditor({ initialRoles, onSave, onCancel }: CohortRole
   };
 
   const removeRole = (index: number) => {
+    const role = roles[index];
+    if (role.id) {
+      setDeletedIds((prev) => new Set(prev).add(role.id!));
+    }
     setRoles(roles.filter((_, i) => i !== index));
   };
 
   const updateRole = (index: number, name: string) => {
-    setRoles(roles.map((r, i) => (i === index ? { name } : r)));
+    setRoles(roles.map((r, i) => (i === index ? { ...r, name } : r)));
   };
 
   const handleSave = async () => {
@@ -48,7 +53,7 @@ export function CohortRolesEditor({ initialRoles, onSave, onCancel }: CohortRole
     setError("");
     setSaving(true);
     try {
-      await onSave(nonEmpty);
+      await onSave(nonEmpty, Array.from(deletedIds));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ошибка сохранения";
       alert(`Не удалось сохранить роли: ${message}`);

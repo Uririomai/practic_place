@@ -139,27 +139,49 @@ export default function AdminCohortsPage() {
     setEditorMode("roles");
   };
 
-  const handleSaveRoles = async (roles: { name: string }[]) => {
+  const handleSaveRoles = async (
+    roles: { id?: string; name: string }[],
+    deletedIds: string[],
+  ) => {
     if (!selectedCohort) return;
     setSaving(true);
     try {
-      // Загружаем существующие роли
-      const existingRoles = await api.admin.getRoles(selectedCohort.id);
-      const newNames = new Set(roles.filter(r => r.name.trim()).map(r => r.name.toLowerCase()));
+      // Удаляем только явно удалённые роли (кнопка trash)
+      for (const roleId of deletedIds) {
+        await api.admin.deleteRole(selectedCohort.id, roleId);
+      }
 
-      // Удаляем роли, которых нет в новом списке
-      for (const existing of existingRoles) {
-        if (!newNames.has(existing.name.toLowerCase())) {
-          await api.admin.deleteRole(selectedCohort.id, existing.id);
+      // Обновляем или создаём роли
+      for (const role of roles.filter(r => r.name.trim())) {
+        if (role.id) {
+          // Роль с известным id — обновляем имя, если изменилось (PATCH)
+          const existing = cohortRoles.find(r => r.id === role.id);
+          if (existing && existing.name !== role.name.trim()) {
+            await api.admin.updateRole(selectedCohort.id, role.id, { name: role.name.trim() });
+          }
+        } else {
+          // Новая роль без id — создаём (POST)
+          await api.admin.saveRoles(selectedCohort.id, { roles: [{ name: role.name.trim() }] });
         }
       }
 
-      // Создаём новые роли (которых ещё нет)
-      const existingNames = new Set(existingRoles.map(r => r.name.toLowerCase()));
-      const newRoles = roles.filter(r => r.name.trim() && !existingNames.has(r.name.toLowerCase()));
-      if (newRoles.length > 0) {
-        await api.admin.saveRoles(selectedCohort.id, { roles: newRoles });
+      // Синхронизируем поле desired_role в полях анкеты с актуальными ролями
+      try {
+        const currentFields = await api.survey.getFields(selectedCohort.id);
+        const roleNames = roles
+          .filter(r => r.name.trim())
+          .map(r => r.name.trim());
+        const updatedFields = currentFields.map(f => {
+          if (f.id === "desired_role" && f.type === "select") {
+            return { ...f, options: roleNames };
+          }
+          return f;
+        });
+        await api.admin.saveSurveyFields(selectedCohort.id, { fields: updatedFields });
+      } catch {
+        // Не блокируем сохранение ролей, если синхронизация полей не удалась
       }
+
       setEditorMode(null);
     } finally {
       setSaving(false);

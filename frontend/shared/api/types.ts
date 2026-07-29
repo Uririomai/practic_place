@@ -251,7 +251,7 @@ export interface SaveSurveyFieldsDto {
 }
 
 export interface SaveCohortRolesDto {
-  roles: { name: string }[];
+  roles: { id?: string; name: string }[];
 }
 
 export interface SaveTestTaskDto {
