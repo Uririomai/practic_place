@@ -142,7 +142,7 @@ router.post(
 
       const uri =
         await storage.save(
-          `cohorts/${cohort.id}/templates/${id}-${req.file.originalname}`,
+          `cohorts/${cohort.id}/templates/${id}.docx`,
           req.file.buffer,
         );
 
@@ -238,11 +238,11 @@ router.patch(
       let uri = template.uri;
 
       if (req.file) {
-        await storage.delete(uri)
+        await storage.delete(uri).catch(() => {});
         const id = randomUUID()
         uri =
           await storage.save(
-            `cohorts/${template.cohortId}/templates/${id}-${req.file.originalname}`,
+            `cohorts/${template.cohortId}/templates/${id}.docx`,
             req.file.buffer,
           );
       }
@@ -325,7 +325,7 @@ router.delete(
       }
 
 
-      await storage.delete(template.uri);
+      await storage.delete(template.uri).catch(() => {});
 
       await prisma.documentTemplate.delete({
         where: {
