@@ -165,18 +165,17 @@ export default function AdminCohortsPage() {
         }
       }
 
-      // Синхронизируем поле desired_role в полях анкеты с актуальными ролями
+      // Синхронизируем поле «Желаемая роль» в опросных полях когорты с актуальными ролями
       try {
         const currentFields = await api.survey.getFields(selectedCohort.id);
         const roleNames = roles
           .filter(r => r.name.trim())
           .map(r => r.name.trim());
-        const updatedFields = currentFields.map(f => {
-          if (f.id === "desired_role" && f.type === "select") {
-            return { ...f, options: roleNames };
-          }
-          return f;
-        });
+        const updatedFields = currentFields.map(f =>
+          f.label === "Желаемая роль"
+            ? { ...f, type: "select" as const, options: roleNames }
+            : f
+        );
         await api.admin.saveSurveyFields(selectedCohort.id, { fields: updatedFields });
       } catch {
         // Не блокируем сохранение ролей, если синхронизация полей не удалась
