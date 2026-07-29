@@ -9,8 +9,26 @@ function detectEngine(uri: string): Engine | null {
   return null;
 }
 
+/**
+ * Препроцессинг XML документа для docxtemplater.
+ * Удаляет <w:proofErr> — теги проверки орфографии Word,
+ * которые разрывают {{...}} на несколько <w:r> и мешают docxtemplater
+ * склеить их обратно.
+ */
+function fixDocxXml(xml: string): string {
+  return xml.replace(/<w:proofErr[^>]*\/>/g, "");
+}
+
 function generateDocx(templateBuffer: Buffer, data: Record<string, unknown>): Buffer {
   const zip = new PizZip(templateBuffer);
+
+  // Препроцессинг: удаляем <w:proofErr> из XML до того, как docxtemplater его прочитает
+  const docXml: string | undefined = zip.file("word/document.xml")?.asText();
+  if (docXml) {
+    const fixedXml = fixDocxXml(docXml);
+    zip.file("word/document.xml", fixedXml);
+  }
+
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
@@ -33,7 +51,6 @@ export async function generateDocument(
     throw new Error(`Unsupported document type: ${templateUri}`);
   }
 
-  // ponytail: only docx supported, add engines here when needed
   if (engine === "docx") {
     const templateBuffer = await storage.read(templateUri);
     return generateDocx(templateBuffer, data);
