@@ -167,7 +167,7 @@ router.post("/:cohortId/fields", requireAdmin, async (req, res, next) => {
       data: {
         cohortId: req.params.cohortId as string,
         label,
-        type,
+        type: (type as string).toUpperCase() as $Enums.SurveyFieldType,
         options: options ?? null,
         order: typeof order === "number" ? order : 0,
         required: required ?? false,
@@ -359,7 +359,7 @@ router.patch("/:cohortId/fields/:id", requireAdmin, async (req, res, next) => {
       data.label = label;
 
     if (type !== undefined)
-      data.type = type;
+      data.type = (type as string).toUpperCase();
 
     if (options !== undefined)
       data.options = options;
