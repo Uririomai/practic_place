@@ -318,7 +318,7 @@ router.get(
         const parts = studentFio.trim().split(/\s+/);
         if (parts.length >= 2) {
           const surname = parts[0];
-          const initials = parts.slice(1).map((p) => p[0].toUpperCase() + ".").join("");
+          const initials = parts.slice(1).map((p) => (p[0]?.toUpperCase() ?? "") + ".").join("");
           mergedData["student_fio_title"] = `${surname} ${initials}`;
         } else {
           mergedData["student_fio_title"] = studentFio;
