@@ -9,7 +9,6 @@
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-
     "compose:prod:up": "docker compose up --build",
     "compose:prod:down": "docker compose down",
     "compose:dev:up": "docker compose -f compose.dev.yaml up --build",
@@ -23,6 +22,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1083.0",
     "@prisma/client": "^6.19.3",
+    "adm-zip": "^0.6.0",
     "bcryptjs": "^3.0.3",
     "docxtemplater": "^3.69.0",
     "dotenv": "^17.4.2",

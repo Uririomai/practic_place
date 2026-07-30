@@ -92,6 +92,11 @@ router.get(
  *                 type: string
  *               slug:
  *                 type: string
+ *               engine:
+ *                 type: string
+ *                 enum: [DOCX, TYPST]
+ *                 default: DOCX
+ *                 description: "Template engine: DOCX (docxtemplater) or TYPST (typst .zip)"
  *               requirements:
  *                 type: object
  *     security:
@@ -110,6 +115,7 @@ router.post(
         name,
         slug,
         requirements = {},
+        engine = "DOCX",
       } = req.body;
 
 
@@ -139,10 +145,11 @@ router.post(
       }
 
       const id = randomUUID()
+      const ext = engine === "TYPST" ? "zip" : "docx";
 
       const uri =
         await storage.save(
-          `cohorts/${cohort.id}/templates/${id}.docx`,
+          `cohorts/${cohort.id}/templates/${id}.${ext}`,
           req.file.buffer,
         );
 
@@ -240,9 +247,12 @@ router.patch(
       if (req.file) {
         await storage.delete(uri).catch(() => {});
         const id = randomUUID()
+        // ponytail: engine from body or detect from existing uri -> file extension
+        const engine = req.body.engine ?? (template.uri.endsWith(".zip") ? "TYPST" : "DOCX");
+        const ext = engine === "TYPST" ? "zip" : "docx";
         uri =
           await storage.save(
-            `cohorts/${template.cohortId}/templates/${id}.docx`,
+            `cohorts/${template.cohortId}/templates/${id}.${ext}`,
             req.file.buffer,
           );
       }

@@ -14,6 +14,9 @@ RUN npx prisma generate && npm run build && npm prune --omit=dev
 FROM node:22-alpine
 WORKDIR /app
 
+# ponytail: typst CLI for template compilation
+RUN apk add --no-cache typst
+
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist

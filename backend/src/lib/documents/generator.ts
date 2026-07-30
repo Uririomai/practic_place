@@ -1,11 +1,17 @@
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
+import AdmZip from "adm-zip";
+import { execSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { storage } from "../storage/index.js";
 
-type Engine = "docx";
+type Engine = "docx" | "typst";
 
 function detectEngine(uri: string): Engine | null {
   if (uri.endsWith(".docx")) return "docx";
+  if (uri.endsWith(".zip")) return "typst";
   return null;
 }
 
@@ -49,6 +55,49 @@ function generateDocx(templateBuffer: Buffer, data: Record<string, unknown>): Bu
   return doc.getZip().generate({ type: "nodebuffer" }) as Buffer;
 }
 
+function generateTypst(templateBuffer: Buffer, data: Record<string, unknown>): Buffer {
+  // ponytail: single tmp dir, cleaned up after compile
+  const tmpDir = mkdtempSync(join(tmpdir(), "typst-"));
+  try {
+    const zip = new AdmZip(templateBuffer);
+    zip.extractAllTo(tmpDir, true);
+
+    // ponytail: look for main.typ, then first .typ in root
+    let mainTyp = "main.typ";
+    if (!existsSync(join(tmpDir, mainTyp))) {
+      const entries = zip.getEntries().filter((e) => e.name.endsWith(".typ") && !e.name.includes("/"));
+      if (entries.length === 0) throw new Error("No .typ file found in template zip");
+      mainTyp = entries[0]!.name;
+    }
+
+    const mainPath = join(tmpDir, mainTyp);
+    let content = readFileSync(mainPath, "utf-8");
+
+    // ponytail: simple string replace for {{key}}, same delimiters as docx
+    for (const [key, value] of Object.entries(data)) {
+      const val = value === undefined || value === null ? `${key}_не_заполнено` : String(value);
+      content = content.replaceAll(new RegExp(`\\{\\{${escapeRegex(key)}\\}}`, "g"), val);
+    }
+
+    writeFileSync(mainPath, content, "utf-8");
+
+    const outPath = join(tmpDir, "output.pdf");
+    execSync(`typst compile "${mainPath}" "${outPath}"`, {
+      cwd: tmpDir,
+      stdio: "pipe",
+      timeout: 30_000,
+    });
+
+    return readFileSync(outPath);
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function generateDocument(
   templateUri: string,
   data: Record<string, unknown>,
@@ -59,9 +108,14 @@ export async function generateDocument(
     throw new Error(`Unsupported document type: ${templateUri}`);
   }
 
+  const templateBuffer = await storage.read(templateUri);
+
   if (engine === "docx") {
-    const templateBuffer = await storage.read(templateUri);
     return generateDocx(templateBuffer, data);
+  }
+
+  if (engine === "typst") {
+    return generateTypst(templateBuffer, data);
   }
 
   throw new Error(`Engine not implemented: ${engine}`);

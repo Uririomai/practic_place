@@ -332,9 +332,13 @@ router.get(
         mergedData,
       );
 
+      // ponytail: detect engine from template URI extension
+      const mime = template.uri.endsWith(".zip")
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
       res
-        .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        .type(mime)
         .send(file);
 
     } catch (e) {
