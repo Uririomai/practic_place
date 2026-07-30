@@ -293,8 +293,8 @@ router.get(
 
       // ponytail: cohort_name, role_name, user_email added
       const cohortFields: Record<string, string> = {
-        practice_start: cohort_!.practiceStart.toISOString().split("T")[0] ?? "",
-        practice_end: cohort_!.practiceEnd.toISOString().split("T")[0] ?? "",
+        practice_start: cohort_!.practiceStart.toLocaleDateString("ru-RU") ?? "",
+        practice_end: cohort_!.practiceEnd.toLocaleDateString("ru-RU") ?? "",
         cohort_name: cohort_!.name ?? "",
         role_name: role?.name ?? "",
         user_email: userEmail ?? "",
