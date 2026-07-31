@@ -1,5 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
+import AdmZip from "adm-zip";
 import { prisma } from "../../lib/prisma.js";
 import { storage } from "../../lib/storage/index.js";
 import { requireAdmin } from "../../middleware/auth.middleware.js";
@@ -7,6 +8,19 @@ import { AppError } from "../../lib/errors.js";
 import { randomUUID } from "node:crypto";
 
 const router = Router();
+
+// ponytail: auto-detect engine from zip content, body.engine overrides
+function detectEngineFromFile(buffer: Buffer): string {
+  try {
+    const zip = new AdmZip(buffer);
+    const entries = zip.getEntries();
+    if (entries.some((e) => e.name === "word/document.xml")) return "DOCX";
+    if (entries.some((e) => e.name.endsWith(".typ"))) return "TYPST";
+  } catch {
+    // not a zip, fall through
+  }
+  return "DOCX";
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -115,7 +129,7 @@ router.post(
         name,
         slug,
         requirements = {},
-        engine = "DOCX",
+        engine: bodyEngine,
       } = req.body;
 
 
@@ -126,6 +140,8 @@ router.post(
           "Template file required",
         );
       }
+
+      const engine = bodyEngine ?? detectEngineFromFile(req.file.buffer);
 
 
       const cohort =
@@ -247,8 +263,8 @@ router.patch(
       if (req.file) {
         await storage.delete(uri).catch(() => {});
         const id = randomUUID()
-        // ponytail: engine from body or detect from existing uri -> file extension
-        const engine = req.body.engine ?? (template.uri.endsWith(".zip") ? "TYPST" : "DOCX");
+        // ponytail: engine from body, or detect from file, or fallback to existing uri extension
+        const engine = req.body.engine ?? detectEngineFromFile(req.file.buffer);
         const ext = engine === "TYPST" ? "zip" : "docx";
         uri =
           await storage.save(
