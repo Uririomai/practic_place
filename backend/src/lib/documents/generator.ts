@@ -79,6 +79,9 @@ function generateTypst(templateBuffer: Buffer, data: Record<string, unknown>): B
       content = content.replaceAll(new RegExp(`\\{\\{${escapeRegex(key)}\\}}`, "g"), val);
     }
 
+    // ponytail: catch remaining {{key}} -> replace with "key_не_заполнено"
+    content = content.replace(/\{\{([^}]+)\}\}/g, (_, key) => `${key}_не_заполнено`);
+
     writeFileSync(mainPath, content, "utf-8");
 
     const outPath = join(tmpDir, "output.pdf");
