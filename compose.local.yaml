@@ -1,0 +1,17 @@
+services:
+  app:
+    ports:
+      - "3000:3000"
+
+  frontend:
+    ports:
+      - "8080:3000"
+
+  pgadmin:
+    ports:
+      - "5050:80"
+
+networks:
+  default:
+    name: practice-local
+    external: false
