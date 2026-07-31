@@ -144,7 +144,7 @@ export function DocumentTemplatesEditor({
                         <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Загружен</Badge>
                         <input
                           type="file"
-                          accept=".docx"
+                          accept=".docx,.zip"
                           className="hidden"
                           id={`replace-${rt.slug}`}
                           onChange={(e) => {
@@ -171,7 +171,7 @@ export function DocumentTemplatesEditor({
                         <Badge variant="secondary">Не загружен</Badge>
                         <input
                           type="file"
-                          accept=".docx"
+                          accept=".docx,.zip"
                           className="hidden"
                           id={`upload-${rt.slug}`}
                           onChange={(e) => {
@@ -241,7 +241,7 @@ export function DocumentTemplatesEditor({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".docx"
+                accept=".docx,.zip"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                 className="hidden"
               />

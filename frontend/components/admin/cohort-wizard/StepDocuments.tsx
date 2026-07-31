@@ -75,7 +75,7 @@ export function StepDocuments({ documents, onChange, hintsOpen = false, onToggle
     <div className="flex gap-4">
       <div className="flex-1 space-y-6 min-w-0">
         <p className="text-sm text-muted-foreground">
-          Загрузите шаблоны документов (.docx). Этот шаг можно пропустить и настроить позже.
+          Загрузите шаблоны документов (.docx / .zip). Этот шаг можно пропустить и настроить позже.
         </p>
 
         <div>
@@ -104,7 +104,7 @@ export function StepDocuments({ documents, onChange, hintsOpen = false, onToggle
                       {existing ? (
                         <>
                           <Badge className="bg-green-100 text-green-700 hover:bg-green-100">{existing.file.name}</Badge>
-                          <input type="file" accept=".docx" className="hidden" id={`replace-${rt.slug}`}
+                          <input type="file" accept=".docx,.zip" className="hidden" id={`replace-${rt.slug}`}
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRequired(rt.slug, rt.name, f); }} />
                           <Button variant="outline" size="sm" asChild>
                             <label htmlFor={`replace-${rt.slug}`} className="cursor-pointer">
@@ -119,7 +119,7 @@ export function StepDocuments({ documents, onChange, hintsOpen = false, onToggle
                       ) : (
                         <>
                           <Badge variant="secondary">Не загружен</Badge>
-                          <input type="file" accept=".docx" className="hidden" id={`upload-${rt.slug}`}
+                          <input type="file" accept=".docx,.zip" className="hidden" id={`upload-${rt.slug}`}
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadRequired(rt.slug, rt.name, f); }} />
                           <Button variant="outline" size="sm" asChild>
                             <label htmlFor={`upload-${rt.slug}`} className="cursor-pointer">
@@ -164,7 +164,7 @@ export function StepDocuments({ documents, onChange, hintsOpen = false, onToggle
                 <Input placeholder="slug (например, certificate)" value={additionalSlug} onChange={(e) => setAdditionalSlug(e.target.value)} />
               </div>
               <div className="flex items-center gap-3">
-                <input ref={additionalInputRef} type="file" accept=".docx"
+                <input ref={additionalInputRef} type="file" accept=".docx,.zip"
                   onChange={(e) => setAdditionalFile(e.target.files?.[0] || null)} className="hidden" />
                 <Button variant="outline" size="sm" type="button" onClick={() => additionalInputRef.current?.click()}>
                   <Upload className="h-4 w-4 mr-2" />
