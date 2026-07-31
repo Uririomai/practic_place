@@ -6,6 +6,7 @@ import { CheckCircle2, Copy } from "lucide-react";
 // Все переменные для шаблонов документов
 const VARIABLES = [
   { key: "student_fio", label: "ФИО студента" },
+  { key: "student_fio_genitive", label: "ФИО в родительном падеже" },
   { key: "student_fio_title", label: "ФИО в формате Фамилия И.О." },
   { key: "group", label: "Группа" },
   { key: "direction_code", label: "Код направления" },
@@ -13,6 +14,8 @@ const VARIABLES = [
   { key: "program_name", label: "Образовательная программа" },
   { key: "specialty", label: "Специальность" },
   { key: "practice_topic", label: "Тема практики" },
+  { key: "university_supervisor", label: "Руководитель от вуза" },
+  { key: "university_supervisor_title", label: "Руководитель (Фамилия И.О.)" },
   { key: "main_stage_tasks", label: "Задачи этапа" },
   { key: "review_activities", label: "Мероприятия за время практики" },
   { key: "review_characteristic", label: "Характеристика" },

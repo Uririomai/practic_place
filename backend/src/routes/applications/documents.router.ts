@@ -327,6 +327,21 @@ router.get(
         mergedData["student_fio_title"] = "student_fio_title_не_заполнено";
       }
 
+      // ponytail: university_supervisor_title — Фамилия И.О. из university_supervisor
+      const supervisor = mergedData["university_supervisor"];
+      if (supervisor && !supervisor.endsWith("_не_заполнено")) {
+        const parts = supervisor.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          const surname = parts[0];
+          const initials = parts.slice(1).map((p) => (p[0]?.toUpperCase() ?? "") + ".").join("");
+          mergedData["university_supervisor_title"] = `${surname} ${initials}`;
+        } else {
+          mergedData["university_supervisor_title"] = supervisor;
+        }
+      } else {
+        mergedData["university_supervisor_title"] = "university_supervisor_title_не_заполнено";
+      }
+
       const file = await generateDocument(
         template.uri,
         mergedData,

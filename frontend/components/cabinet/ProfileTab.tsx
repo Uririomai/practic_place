@@ -34,6 +34,7 @@ const PROFILE_FIELDS: Array<{
   placeholder?: string;
 }> = [
   { key: "student_fio", label: "ФИО студента", type: "input", placeholder: "Иванов Иван Иванович" },
+  { key: "student_fio_genitive", label: "ФИО в родительном падеже", type: "input", placeholder: "Иванова Ивана Ивановича" },
   { key: "group", label: "Группа", type: "input", placeholder: "РИ-330930" },
   { key: "direction_code", label: "Код направления", type: "input", placeholder: "09.03.03" },
   { key: "direction_name", label: "Наименование направления", type: "input", placeholder: "Прикладная информатика" },
@@ -41,6 +42,7 @@ const PROFILE_FIELDS: Array<{
   { key: "specialty", label: "Специальность", type: "input", placeholder: "Направление подготовки" },
   { key: "practice_topic", label: "Тема практики", type: "input", placeholder: "Тема задания" },
   { key: "main_stage_tasks", label: "Перечень работ основного этапа", type: "textarea", placeholder: "Список задач" },
+  { key: "university_supervisor", label: "Руководитель практики от вуза", type: "input", placeholder: "Петров Петр Петрович" },
 ];
 
 /** Проверка: все ли поля профиля заполнены */

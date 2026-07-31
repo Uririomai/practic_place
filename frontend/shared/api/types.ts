@@ -18,6 +18,7 @@ export interface AuthResponse {
 
 export interface UserProfile {
   student_fio?: string;
+  student_fio_genitive?: string;
   group?: string;
   direction_code?: string;
   direction_name?: string;
@@ -25,6 +26,7 @@ export interface UserProfile {
   specialty?: string;
   practice_topic?: string;
   main_stage_tasks?: string;
+  university_supervisor?: string;
 }
 
 export interface User {
