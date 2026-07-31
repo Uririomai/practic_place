@@ -84,14 +84,23 @@ function generateTypst(templateBuffer: Buffer, data: Record<string, unknown>): B
 
     writeFileSync(mainPath, content, "utf-8");
 
-    const outPath = join(tmpDir, "output.pdf");
-    execSync(`typst compile "${mainPath}" "${outPath}"`, {
+    const outPath = join(tmpDir, "output.png");
+    execSync(`typst compile --ppi 300 "${mainPath}" "${outPath}"`, {
       cwd: tmpDir,
       stdio: "pipe",
       timeout: 30_000,
     });
 
-    return readFileSync(outPath);
+    // ponytail: convert PNG(s) to PDF (rasterized output)
+    // typst generates output.png for 1 page, output-{n}.png for multi-page
+    const pdfPath = join(tmpDir, "output.pdf");
+    execSync(`magick ${join(tmpDir, "output*.png")} pdf:"${pdfPath}"`, {
+      cwd: tmpDir,
+      stdio: "pipe",
+      timeout: 30_000,
+    });
+
+    return readFileSync(pdfPath);
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }

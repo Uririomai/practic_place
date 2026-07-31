@@ -118,7 +118,8 @@ export function DocumentsTable({ documents, onRefresh }: DocumentsTableProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${slug}_${applicationId.slice(0, 8)}.docx`;
+      const ext = blob.type === "application/pdf" ? ".pdf" : ".docx";
+      a.download = `${slug}_${applicationId.slice(0, 8)}${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

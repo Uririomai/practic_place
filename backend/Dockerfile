@@ -15,7 +15,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # ponytail: typst CLI for template compilation
-RUN apk add --no-cache typst
+RUN apk add --no-cache typst imagemagick ghostscript
 
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
